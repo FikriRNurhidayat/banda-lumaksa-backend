@@ -58,5 +58,7 @@ type Subscription struct {
 	UpdatedAt time.Time
 }
 
+type Subscriptions []Subscription
+
 var EmptySubscription = Subscription{}
 var EmptySubscriptions = []Subscription{}

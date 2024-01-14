@@ -2,9 +2,15 @@ package main
 
 import (
 	"fmt"
-	_ "github.com/fikrirnurhidayat/banda-lumaksa/internal/transaction"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/subscription"
 )
 
 func main() {
-	fmt.Println("Hello world")
+	createSubscriptionUseCase := subscription.NewCreateSubscriptionUseCase()
+
+	ctl := subscription.NewController(
+		subscription.With[*subscription.ControllerImpl, subscription.CreateSubscriptionUseCase]("CreateSubscriptionUseCase", createSubscriptionUseCase),
+	)
+
+	fmt.Println(ctl)
 }

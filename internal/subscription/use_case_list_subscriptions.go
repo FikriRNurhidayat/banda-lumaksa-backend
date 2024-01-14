@@ -5,14 +5,12 @@ import (
 	"time"
 
 	"github.com/fikrirnurhidayat/banda-lumaksa/pkg/exists"
-	"github.com/google/uuid"
 )
 
 type ListSubscriptionsUseCase interface {
 	Call(ctx context.Context, params *ListSubscriptionsParams) (*ListSubscriptionsResult, error)
 }
 type ListSubscriptionsParams struct {
-	ID          uuid.UUID
 	NameLike    string
 	TypeIs      Type
 	StartedFrom time.Time

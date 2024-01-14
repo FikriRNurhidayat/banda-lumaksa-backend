@@ -59,12 +59,14 @@ func (r *PostgresRepository) Size(ctx context.Context, specs ...Specification) (
 	var err error
 	var query string = PostgresSizeSQL
 
-	stmt, err := r.db.PrepareContext(ctx, query+r.buildQuery(specs...))
+	queryStr, queryArgs := r.buildQuery(specs...)
+
+	stmt, err := r.db.PrepareContext(ctx, query+queryStr)
 	if err != nil {
 		return 0, err
 	}
 
-	rows, err := stmt.QueryContext(ctx)
+	rows, err := stmt.QueryContext(ctx, queryArgs)
 	if err != nil {
 		return 0, err
 	}
