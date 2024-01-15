@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 type Controller interface {
@@ -34,6 +35,9 @@ func New(builders ...ServerBuilder) *Server {
 		echo: echo.New(),
 		Port: 3000,
 	}
+
+	server.echo.Use(middleware.Logger())
+	server.echo.Use(middleware.Recover())
 
 	for _, build := range builders {
 		build(server)

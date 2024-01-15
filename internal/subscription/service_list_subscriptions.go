@@ -7,7 +7,7 @@ import (
 	"github.com/fikrirnurhidayat/banda-lumaksa/pkg/exists"
 )
 
-type ListSubscriptionsUseCase interface {
+type ListSubscriptionsService interface {
 	Call(ctx context.Context, params *ListSubscriptionsParams) (*ListSubscriptionsResult, error)
 }
 type ListSubscriptionsParams struct {
@@ -28,11 +28,12 @@ type ListSubscriptionsResult struct {
 	Limit         uint32
 	Subscriptions []Subscription
 }
-type ListSubscriptionsUseCaseImpl struct {
+
+type ListSubscriptionsServiceImpl struct {
 	subscriptionRepository Repository
 }
 
-func (u *ListSubscriptionsUseCaseImpl) Call(ctx context.Context, params *ListSubscriptionsParams) (*ListSubscriptionsResult, error) {
+func (u *ListSubscriptionsServiceImpl) Call(ctx context.Context, params *ListSubscriptionsParams) (*ListSubscriptionsResult, error) {
 	specs := []Specification{}
 
 	if exists.String(params.NameLike) {
@@ -77,8 +78,8 @@ func (u *ListSubscriptionsUseCaseImpl) Call(ctx context.Context, params *ListSub
 	}, nil
 }
 
-func NewListSubscriptionsUseCase(subscriptionRepository Repository) ListSubscriptionsUseCase {
-	return &ListSubscriptionsUseCaseImpl{
+func NewListSubscriptionsService(subscriptionRepository Repository) ListSubscriptionsService {
+	return &ListSubscriptionsServiceImpl{
 		subscriptionRepository: subscriptionRepository,
 	}
 }

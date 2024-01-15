@@ -6,18 +6,21 @@ import (
 	"github.com/google/uuid"
 )
 
-type CancelSubscriptionUseCase interface {
+type CancelSubscriptionService interface {
 	Call(ctx context.Context, params *CancelSubscriptionParams) (*CancelSubscriptionResult, error)
 }
+
 type CancelSubscriptionParams struct {
 	ID uuid.UUID
 }
+
 type CancelSubscriptionResult struct{}
-type CancelSubscriptionUseCaseImpl struct {
+
+type CancelSubscriptionServiceImpl struct {
 	subscriptionRepository Repository
 }
 
-func (u *CancelSubscriptionUseCaseImpl) Call(ctx context.Context, params *CancelSubscriptionParams) (*CancelSubscriptionResult, error) {
+func (u *CancelSubscriptionServiceImpl) Call(ctx context.Context, params *CancelSubscriptionParams) (*CancelSubscriptionResult, error) {
 	s, err := u.subscriptionRepository.Get(ctx, params.ID)
 	if err != nil {
 		return nil, err
@@ -30,8 +33,8 @@ func (u *CancelSubscriptionUseCaseImpl) Call(ctx context.Context, params *Cancel
 	return &CancelSubscriptionResult{}, nil
 }
 
-func NewCancelSubscriptionUseCase(subscriptionRepository Repository) CancelSubscriptionUseCase {
-	return &CancelSubscriptionUseCaseImpl{
+func NewCancelSubscriptionService(subscriptionRepository Repository) CancelSubscriptionService {
+	return &CancelSubscriptionServiceImpl{
 		subscriptionRepository: subscriptionRepository,
 	}
 }

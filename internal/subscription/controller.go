@@ -2,25 +2,25 @@ package subscription
 
 import (
 	"net/http"
-	"reflect"
 	"time"
 
+	"github.com/google/uuid"
 	echo "github.com/labstack/echo/v4"
 )
 
 type Controller interface {
 	Register(*echo.Echo)
-	CreateSubscription(ctx echo.Context) error
-	CancelSubscription(ctx echo.Context) error
-	GetSubscription(ctx echo.Context) error
-	ListSubscriptions(ctx echo.Context) error
+	CreateSubscription(c echo.Context) error
+	CancelSubscription(c echo.Context) error
+	GetSubscription(c echo.Context) error
+	ListSubscriptions(c echo.Context) error
 }
 
 type ControllerImpl struct {
-	CreateSubscriptionUseCase CreateSubscriptionUseCase
-	CancelSubscriptionUseCase CancelSubscriptionUseCase
-	GetSubscriptionUseCase    GetSubscriptionUseCase
-	ListSubscriptionsUseCase  ListSubscriptionsUseCase
+	CreateSubscriptionService CreateSubscriptionService
+	CancelSubscriptionService CancelSubscriptionService
+	GetSubscriptionService    GetSubscriptionService
+	ListSubscriptionsService  ListSubscriptionsService
 }
 
 func (ctl *ControllerImpl) Register(e *echo.Echo) {
@@ -30,19 +30,76 @@ func (ctl *ControllerImpl) Register(e *echo.Echo) {
 	e.GET("/v1/subscriptions", ctl.ListSubscriptions)
 }
 
-// CancelSubscription implements Controller.
-func (*ControllerImpl) CancelSubscription(ctx echo.Context) error {
-	panic("unimplemented")
+func (ctl *ControllerImpl) CancelSubscription(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.Logger().Error(err.Error())
+		return err
+	}
+
+	params := &CancelSubscriptionParams{
+		ID: id,
+	}
+
+	if _, err := ctl.CancelSubscriptionService.Call(c.Request().Context(), params); err != nil {
+		c.Logger().Error(err.Error())
+		return err
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }
 
-// CreateSubscription implements Controller.
-func (*ControllerImpl) CreateSubscription(ctx echo.Context) error {
-	panic("unimplemented")
+func (ctl *ControllerImpl) CreateSubscription(c echo.Context) error {
+	payload := &CreateSubscriptionRequest{}
+
+	if err := c.Bind(&payload); err != nil {
+		c.Logger().Error(err.Error())
+		return err
+	}
+
+	result, err := ctl.CreateSubscriptionService.Call(c.Request().Context(), &CreateSubscriptionParams{
+		Name:      payload.Name,
+		Fee:       payload.Fee,
+		Type:      GetType(payload.Type),
+		StartedAt: payload.StartedAt,
+		EndedAt:   payload.EndedAt,
+		DueAt:     payload.DueAt,
+	})
+
+	if err != nil {
+		c.Logger().Error(err.Error())
+		return err
+	}
+
+	response := &CreateSubscriptionResponse{
+		Subscription: NewSubscriptionResponse(result.Subscription),
+	}
+
+	return c.JSON(http.StatusCreated, response)
 }
 
-// GetSubscription implements Controller.
-func (*ControllerImpl) GetSubscription(ctx echo.Context) error {
-	panic("unimplemented")
+func (ctl *ControllerImpl) GetSubscription(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.Logger().Error(err.Error())
+		return err
+	}
+
+	params := &GetSubscriptionParams{
+		ID: id,
+	}
+
+	result, err := ctl.GetSubscriptionService.Call(c.Request().Context(), params)
+	if err != nil {
+		c.Logger().Error(err.Error())
+		return err
+	}
+
+	response := &GetSubscriptionResponse{
+		Subscription: NewSubscriptionResponse(result.Subscription),
+	}
+
+	return c.JSON(http.StatusOK, response)
 }
 
 func (ctl *ControllerImpl) ListSubscriptions(c echo.Context) error {
@@ -69,7 +126,7 @@ func (ctl *ControllerImpl) ListSubscriptions(c echo.Context) error {
 		return err
 	}
 
-	result, err := ctl.ListSubscriptionsUseCase.Call(c.Request().Context(), params)
+	result, err := ctl.ListSubscriptionsService.Call(c.Request().Context(), params)
 	if err != nil {
 		c.Logger().Error(err.Error())
 		return err
@@ -80,31 +137,22 @@ func (ctl *ControllerImpl) ListSubscriptions(c echo.Context) error {
 		PageCount:     0,
 		PageSize:      result.Limit,
 		Size:          result.Size,
-		Subscriptions: SubscriptionsResponseFromSubscriptions(result.Subscriptions),
+		Subscriptions: NewSubscriptionsResponse(result.Subscriptions),
 	}
 
 	return c.JSON(http.StatusOK, response)
 }
 
-func NewController(sets ...func(*ControllerImpl)) Controller {
-	ctl := &ControllerImpl{}
-
-	for _, set := range sets {
-		set(ctl)
-	}
-
-	return ctl
-}
-
-func With[Mod any, Deps any](field string, deps Deps) func(mod Mod) {
-	return func(mod Mod) {
-		depValue := reflect.ValueOf(deps)
-		modValue := reflect.ValueOf(mod).Elem()
-		if modValue.Kind() == reflect.Struct {
-			modField := modValue.FieldByName(field)
-			if modField.IsValid() && modField.CanSet() {
-				modField.Set(depValue)
-			}
-		}
+func NewController(
+	listSubscriptionsSvc ListSubscriptionsService,
+	getSubscriptionSvc GetSubscriptionService,
+	createSubscriptionSvc CreateSubscriptionService,
+	cancelSubscriptionSvc CancelSubscriptionService,
+) Controller {
+	return &ControllerImpl{
+		CreateSubscriptionService: createSubscriptionSvc,
+		CancelSubscriptionService: cancelSubscriptionSvc,
+		GetSubscriptionService:    getSubscriptionSvc,
+		ListSubscriptionsService:  listSubscriptionsSvc,
 	}
 }

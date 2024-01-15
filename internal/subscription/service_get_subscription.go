@@ -6,20 +6,23 @@ import (
 	"github.com/google/uuid"
 )
 
-type GetSubscriptionUseCase interface {
+type GetSubscriptionService interface {
 	Call(ctx context.Context, params *GetSubscriptionParams) (*GetSubscriptionResult, error)
 }
+
 type GetSubscriptionParams struct {
 	ID uuid.UUID
 }
+
 type GetSubscriptionResult struct {
 	Subscription Subscription
 }
-type GetSubscriptionUseCaseImpl struct {
+
+type GetSubscriptionServiceImpl struct {
 	subscriptionRepository Repository
 }
 
-func (u *GetSubscriptionUseCaseImpl) Call(ctx context.Context, params *GetSubscriptionParams) (*GetSubscriptionResult, error) {
+func (u *GetSubscriptionServiceImpl) Call(ctx context.Context, params *GetSubscriptionParams) (*GetSubscriptionResult, error) {
 	s, err := u.subscriptionRepository.Get(ctx, params.ID)
 	if err != nil {
 		return nil, err
@@ -30,8 +33,8 @@ func (u *GetSubscriptionUseCaseImpl) Call(ctx context.Context, params *GetSubscr
 	}, nil
 }
 
-func NewGetSubscriptionUseCase(subscriptionRepository Repository) GetSubscriptionUseCase {
-	return &GetSubscriptionUseCaseImpl{
+func NewGetSubscriptionService(subscriptionRepository Repository) GetSubscriptionService {
+	return &GetSubscriptionServiceImpl{
 		subscriptionRepository: subscriptionRepository,
 	}
 }

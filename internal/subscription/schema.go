@@ -9,6 +9,7 @@ import (
 type SubscriptionResponse struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
+	Fee       int32     `json:"fee"`
 	Type      string    `json:"type"`
 	StartedAt time.Time `json:"started_at"`
 	EndedAt   time.Time `json:"ended_at"`
@@ -27,10 +28,28 @@ type ListSubscriptionsResponse struct {
 	Subscriptions SubscriptionsResponse `json:"subscriptions"`
 }
 
-func SubscriptionResponseFromSubscription(subscription Subscription) SubscriptionResponse {
+type CreateSubscriptionRequest struct {
+	Name      string    `json:"name"`
+	Fee       int32     `json:"fee"`
+	Type      string    `json:"type"`
+	StartedAt time.Time `json:"started_at"`
+	EndedAt   time.Time `json:"ended_at"`
+	DueAt     time.Time `json:"due_at"`
+}
+
+type CreateSubscriptionResponse struct {
+	Subscription SubscriptionResponse `json:"subscription"`
+}
+
+type GetSubscriptionResponse struct {
+	Subscription SubscriptionResponse `json:"subscription"`
+}
+
+func NewSubscriptionResponse(subscription Subscription) SubscriptionResponse {
 	return SubscriptionResponse{
 		ID:        subscription.ID,
 		Name:      subscription.Name,
+		Fee:       subscription.Fee,
 		Type:      subscription.Type.String(),
 		StartedAt: subscription.StartedAt,
 		EndedAt:   subscription.EndedAt,
@@ -40,11 +59,11 @@ func SubscriptionResponseFromSubscription(subscription Subscription) Subscriptio
 	}
 }
 
-func SubscriptionsResponseFromSubscriptions(subscriptions Subscriptions) SubscriptionsResponse {
+func NewSubscriptionsResponse(subscriptions Subscriptions) SubscriptionsResponse {
 	subscriptionsResponse := SubscriptionsResponse{}
 
 	for _, s := range subscriptions {
-		subscriptionsResponse = append(subscriptionsResponse, SubscriptionResponseFromSubscription(s))
+		subscriptionsResponse = append(subscriptionsResponse, NewSubscriptionResponse(s))
 	}
 
 	return subscriptionsResponse

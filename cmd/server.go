@@ -13,10 +13,10 @@ import (
 
 var (
 	subscriptionRepository    subscription.Repository
-	createSubscriptionUseCase subscription.CreateSubscriptionUseCase
-	cancelSubscriptionUseCase subscription.CancelSubscriptionUseCase
-	getSubscriptionUseCase    subscription.GetSubscriptionUseCase
-	listSubscriptionsUseCase  subscription.ListSubscriptionsUseCase
+	createSubscriptionService subscription.CreateSubscriptionService
+	cancelSubscriptionService subscription.CancelSubscriptionService
+	getSubscriptionService    subscription.GetSubscriptionService
+	listSubscriptionsService  subscription.ListSubscriptionsService
 	subscriptionController    subscription.Controller
 )
 
@@ -27,16 +27,16 @@ func init() {
 	}
 
 	subscriptionRepository = subscription.NewPostgresRepository(db)
-	createSubscriptionUseCase = subscription.NewCreateSubscriptionUseCase(subscriptionRepository)
-	cancelSubscriptionUseCase = subscription.NewCancelSubscriptionUseCase(subscriptionRepository)
-	getSubscriptionUseCase = subscription.NewGetSubscriptionUseCase(subscriptionRepository)
-	listSubscriptionsUseCase = subscription.NewListSubscriptionsUseCase(subscriptionRepository)
+	createSubscriptionService = subscription.NewCreateSubscriptionService(subscriptionRepository)
+	cancelSubscriptionService = subscription.NewCancelSubscriptionService(subscriptionRepository)
+	getSubscriptionService = subscription.NewGetSubscriptionService(subscriptionRepository)
+	listSubscriptionsService = subscription.NewListSubscriptionsService(subscriptionRepository)
 
 	subscriptionController = subscription.NewController(
-		subscription.With[*subscription.ControllerImpl, subscription.CreateSubscriptionUseCase]("CreateSubscriptionUseCase", createSubscriptionUseCase),
-		subscription.With[*subscription.ControllerImpl, subscription.CancelSubscriptionUseCase]("CancelSubscriptionUseCase", cancelSubscriptionUseCase),
-		subscription.With[*subscription.ControllerImpl, subscription.GetSubscriptionUseCase]("GetSubscriptionUseCase", getSubscriptionUseCase),
-		subscription.With[*subscription.ControllerImpl, subscription.ListSubscriptionsUseCase]("ListSubscriptionsUseCase", listSubscriptionsUseCase),
+		listSubscriptionsService,
+		getSubscriptionService,
+		createSubscriptionService,
+		cancelSubscriptionService,
 	)
 }
 

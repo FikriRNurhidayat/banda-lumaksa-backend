@@ -1,6 +1,7 @@
 package subscription
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,19 @@ func (t Type) String() string {
 	default:
 		return ""
 	}
+}
+
+func (t *Type) UnmarshalJSON(b []byte) error {
+	var val string
+	if err := json.Unmarshal(b, &val); err != nil {
+		return err
+	}
+	*t = GetType(val)
+	return nil
+}
+
+func (t *Type) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.String())
 }
 
 func GetType(str string) Type {
@@ -60,5 +74,5 @@ type Subscription struct {
 
 type Subscriptions []Subscription
 
-var EmptySubscription = Subscription{}
-var EmptySubscriptions = []Subscription{}
+var NoSubscription = Subscription{}
+var NoSubscriptions = []Subscription{}

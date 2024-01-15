@@ -11,5 +11,5 @@ func String(value string) bool {
 }
 
 func Date(value time.Time) bool {
-	return value != values.EmptyTime
+	return value != values.NoTime
 }

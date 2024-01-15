@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type CreateSubscriptionUseCase interface {
+type CreateSubscriptionService interface {
 	Call(ctx context.Context, params *CreateSubscriptionParams) (*CreateSubscriptionResult, error)
 }
 
@@ -25,11 +25,11 @@ type CreateSubscriptionResult struct {
 	Subscription Subscription
 }
 
-type CreateSubscriptionUseCaseImpl struct {
+type CreateSubscriptionServiceImpl struct {
 	subscriptionRepository Repository
 }
 
-func (u *CreateSubscriptionUseCaseImpl) Call(ctx context.Context, params *CreateSubscriptionParams) (*CreateSubscriptionResult, error) {
+func (u *CreateSubscriptionServiceImpl) Call(ctx context.Context, params *CreateSubscriptionParams) (*CreateSubscriptionResult, error) {
 	s := Subscription{
 		ID:        uuid.New(),
 		Name:      params.Name,
@@ -40,7 +40,7 @@ func (u *CreateSubscriptionUseCaseImpl) Call(ctx context.Context, params *Create
 		DueAt:     params.DueAt,
 	}
 
-	if s.DueAt == values.EmptyTime {
+	if s.DueAt == values.NoTime {
 		s.DueAt = u.ComputeDueAt(s)
 	}
 
@@ -57,13 +57,13 @@ func (u *CreateSubscriptionUseCaseImpl) Call(ctx context.Context, params *Create
 	}, nil
 }
 
-func NewCreateSubscriptionUseCase(subscriptionRepository Repository) CreateSubscriptionUseCase {
-	return &CreateSubscriptionUseCaseImpl{
+func NewCreateSubscriptionService(subscriptionRepository Repository) CreateSubscriptionService {
+	return &CreateSubscriptionServiceImpl{
 		subscriptionRepository: subscriptionRepository,
 	}
 }
 
-func (u *CreateSubscriptionUseCaseImpl) ComputeDueAt(s Subscription) time.Time {
+func (u *CreateSubscriptionServiceImpl) ComputeDueAt(s Subscription) time.Time {
 	switch s.Type {
 	case Daily:
 		return s.StartedAt.Add(values.Day)
@@ -72,6 +72,6 @@ func (u *CreateSubscriptionUseCaseImpl) ComputeDueAt(s Subscription) time.Time {
 	case Monthly:
 		return s.StartedAt.AddDate(0, 1, 0)
 	default:
-		return values.EmptyTime
+		return values.NoTime
 	}
 }
