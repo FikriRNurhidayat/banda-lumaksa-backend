@@ -3,10 +3,9 @@ package subscription
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"strings"
 	"time"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 )
 
@@ -26,18 +25,39 @@ type PostgresRepository struct {
 	db *sql.DB
 }
 
+const TableName = "subscriptions"
+
+var Columns []string = []string{
+	"id",
+	"name",
+	"fee",
+	"subscription_type",
+	"started_at",
+	"ended_at",
+	"due_at",
+	"created_at",
+	"updated_at",
+}
+
 func (r *PostgresRepository) List(ctx context.Context, specs ...Specification) ([]Subscription, error) {
 	var subs []Subscription
 	var err error
 
-	queryStr, queryArgs := r.buildQuery(PostgresListSQL, specs...)
+	builder := sq.Select(Columns...).From("subscriptions")
+	builder = r.Filter(builder, specs...)
+	builder = r.Paginate(builder, specs...)
+	queryStr, queryArgs, err := builder.PlaceholderFormat(sq.Dollar).ToSql()
+	if err != nil {
+		return NoSubscriptions, err
+	}
+
 	rows, err := r.db.QueryContext(ctx, queryStr, queryArgs...)
 	if err != nil {
 		return NoSubscriptions, err
 	}
 
 	for rows.Next() {
-		row, err := r.scanRow(rows)
+		row, err := r.Scan(rows)
 		if err != nil {
 			return NoSubscriptions, err
 		}
@@ -51,10 +71,13 @@ func (r *PostgresRepository) List(ctx context.Context, specs ...Specification) (
 func (r *PostgresRepository) Size(ctx context.Context, specs ...Specification) (uint32, error) {
 	var count uint32
 	var err error
+	builder := r.Filter(sq.Select("COUNT(id)").From("subscriptions"), specs...)
+	query, args, err := builder.PlaceholderFormat(sq.Dollar).ToSql()
+	if err != nil {
+		return 0, err
+	}
 
-	queryStr, queryArgs := r.buildQuery(PostgresSizeSQL, specs...)
-
-	rows, err := r.db.QueryContext(ctx, queryStr, queryArgs...)
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -69,7 +92,16 @@ func (r *PostgresRepository) Size(ctx context.Context, specs ...Specification) (
 }
 
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	if _, err := r.db.ExecContext(ctx, PostgresDeleteSQL, id.String()); err != nil {
+	query, args, err := sq.
+		Delete("subscriptions").
+		Where(sq.Eq{"id": id.String()}).
+		PlaceholderFormat(sq.Dollar).
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	if _, err := r.db.ExecContext(ctx, query, args...); err != nil {
 		return err
 	}
 
@@ -80,13 +112,20 @@ func (r *PostgresRepository) Get(ctx context.Context, id uuid.UUID) (Subscriptio
 	var subscription Subscription
 	var err error
 
-	rows, err := r.db.QueryContext(ctx, PostgresGetSQL, id.String())
+	query, args, err := sq.
+		Select(Columns...).
+		From("subscriptions").
+		Where(sq.Eq{"id": id.String()}).
+		PlaceholderFormat(sq.Dollar).
+		ToSql()
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return NoSubscription, err
 	}
 
 	for rows.Next() {
-		row, err := r.scanRow(rows)
+		row, err := r.Scan(rows)
 		if err != nil {
 			return NoSubscription, err
 		}
@@ -99,7 +138,18 @@ func (r *PostgresRepository) Get(ctx context.Context, id uuid.UUID) (Subscriptio
 
 func (r *PostgresRepository) Save(ctx context.Context, subscription Subscription) error {
 	row := r.PostgresSubscriptionRow(subscription)
-	if _, err := r.db.ExecContext(ctx, PostgresSaveSQL, row.QueryArgs()...); err != nil {
+
+	query, args, err := sq.
+		Insert("subscriptions").
+		Columns(Columns...).
+		Values(row.ID.String(), row.Name, row.Fee, row.SubscriptionType, row.StartedAt, row.EndedAt, row.DueAt, row.CreatedAt, row.UpdatedAt).
+		PlaceholderFormat(sq.Dollar).
+		ToSql()
+	if err != nil {
+		return err
+	}
+
+	if _, err := r.db.ExecContext(ctx, query, args...); err != nil {
 		return err
 	}
 
@@ -112,31 +162,6 @@ func NewPostgresRepository(db *sql.DB) Repository {
 	}
 }
 
-func (s *PostgresSubscriptionRow) NamedArgs() []sql.NamedArg {
-	return []sql.NamedArg{
-		sql.Named("id", s.ID.String()),
-		sql.Named("name", s.Name),
-		sql.Named("fee", s.Fee),
-		sql.Named("subscription_type", s.SubscriptionType),
-		sql.Named("started_at", s.StartedAt),
-		sql.Named("ended_at", s.EndedAt),
-		sql.Named("due_at", s.DueAt),
-		sql.Named("created_at", s.CreatedAt),
-		sql.Named("updated_at", s.UpdatedAt),
-	}
-}
-
-func (s *PostgresSubscriptionRow) QueryArgs() []any {
-	namedArgs := s.NamedArgs()
-
-	qargs := make([]interface{}, len(namedArgs))
-	for i, namedArg := range namedArgs {
-		namedArgs[i] = namedArg
-	}
-
-	return qargs
-}
-
 func (*PostgresRepository) PostgresSubscriptionRow(subscription Subscription) *PostgresSubscriptionRow {
 	return &PostgresSubscriptionRow{
 		ID:               subscription.ID,
@@ -146,7 +171,7 @@ func (*PostgresRepository) PostgresSubscriptionRow(subscription Subscription) *P
 		StartedAt:        subscription.StartedAt,
 		EndedAt: sql.NullTime{
 			Time:  subscription.EndedAt,
-			Valid: subscription.EndedAt != time.Time{},
+			Valid: subscription.EndedAt.IsZero(),
 		},
 		DueAt:     subscription.DueAt,
 		CreatedAt: subscription.CreatedAt,
@@ -154,7 +179,7 @@ func (*PostgresRepository) PostgresSubscriptionRow(subscription Subscription) *P
 	}
 }
 
-func (*PostgresRepository) scanRow(rows *sql.Rows) (*PostgresSubscriptionRow, error) {
+func (*PostgresRepository) Scan(rows *sql.Rows) (*PostgresSubscriptionRow, error) {
 	row := &PostgresSubscriptionRow{}
 
 	if err := rows.Scan(
@@ -174,58 +199,38 @@ func (*PostgresRepository) scanRow(rows *sql.Rows) (*PostgresSubscriptionRow, er
 	return row, nil
 }
 
-func (r *PostgresRepository) buildQuery(baseQuery string, specs ...Specification) (string, []any) {
-	var conditions []string
-	var namedArgs []sql.NamedArg
-
-	if len(specs) == 0 {
-		return baseQuery, []any{}
-	}
-
+func (r *PostgresRepository) Filter(builder sq.SelectBuilder, specs ...Specification) sq.SelectBuilder {
 	for _, spec := range specs {
-		queryStr, queryArgs := r.specToSQL(spec)
-		if queryStr == "" {
-			continue
+		switch v := spec.(type) {
+		case NameLikeSpecification:
+			builder = builder.Where(sq.ILike{"name": v.Substring})
+		case TypeIsSpecification:
+			builder = builder.Where(sq.Eq{"subscription_type": v.Type.String()})
+		case CreatedBetweenSpecification:
+			builder = builder.Where(sq.LtOrEq{"created_at": v.End}).Where(sq.GtOrEq{"created_at": v.Start})
+		case StartedBetweenSpecification:
+			builder = builder.Where(sq.LtOrEq{"started_at": v.End}).Where(sq.GtOrEq{"started_at": v.Start})
+		case EndedBetweenSpecification:
+			builder = builder.Where(sq.LtOrEq{"ended_at": v.End}).Where(sq.GtOrEq{"ended_at": v.Start})
+		case DueBetweenSpecification:
+			builder = builder.Where(sq.LtOrEq{"due_at": v.End}).Where(sq.GtOrEq{"due_at": v.Start})
 		}
-		condition := " (" + queryStr + ") "
-		conditions = append(conditions, condition)
-		namedArgs = append(namedArgs, queryArgs...)
 	}
 
-	if len(conditions) == 0 {
-		return baseQuery, []any{}
-	}
-
-	qargs := make([]interface{}, len(namedArgs))
-	for i, namedArg := range namedArgs {
-		namedArgs[i] = namedArg
-	}
-
-	return baseQuery + " WHERE " + r.joinConditions(conditions, "AND"), qargs
+	return builder
 }
 
-func (*PostgresRepository) specToSQL(spec Specification) (string, []sql.NamedArg) {
-	switch v := spec.(type) {
-	case NameLikeSpecification:
-		return "name ILIKE @nameLike", []sql.NamedArg{sql.Named("namedLike", v.Substring)}
-	case TypeIsSpecification:
-		return "subscription_type = @subscriptionType", []sql.NamedArg{sql.Named("subscriptionType", v.Type)}
-	case CreatedBetweenSpecification:
-		return "created_at BETWEEN @createdFrom AND @createdTo", []sql.NamedArg{sql.Named("createdFrom", v.Start), sql.Named("createdTo", v.End)}
-	case StartedBetweenSpecification:
-		return "started_at BETWEEN @startedFrom AND @startedTo", []sql.NamedArg{sql.Named("startedFrom", v.Start), sql.Named("startedTo", v.End)}
-	case EndedBetweenSpecification:
-		return "ended_at BETWEEN @endedFrom AND @endedTo", []sql.NamedArg{sql.Named("endedFrom", v.Start), sql.Named("endedTo", v.End)}
-	case DueBetweenSpecification:
-		return "due_at BETWEEN @dueFrom AND @dueTo", []sql.NamedArg{sql.Named("dueFrom", v.Start), sql.Named("dueTo", v.End)}
-	default:
-		return "", []sql.NamedArg{}
+func (r *PostgresRepository) Paginate(builder sq.SelectBuilder, specs ...Specification) sq.SelectBuilder {
+	for _, spec := range specs {
+		switch v := spec.(type) {
+		case LimitSpecification:
+			builder = builder.Limit(uint64(v.Limit))
+		case OffsetSpecification:
+			builder = builder.Offset(uint64(v.Offset))
+		}
 	}
-}
 
-// TODO: Move me
-func (*PostgresRepository) joinConditions(conditions []string, operator string) string {
-	return "(" + strings.Join(conditions, " "+operator+" ") + ")"
+	return builder
 }
 
 func (row *PostgresSubscriptionRow) Subscription() Subscription {
@@ -241,53 +246,3 @@ func (row *PostgresSubscriptionRow) Subscription() Subscription {
 		UpdatedAt: row.UpdatedAt,
 	}
 }
-
-const PostgresSaveSQL = `INSERT INTO subscriptions (id, name, fee, subscription_type, started_at, ended_at, due_at, created_at, updated_at) 
-VALUES (@id, @name, @fee, @subscription_type, @started_at, @ended_at, @due_at, @created_at, @updated_at)
-ON CONFLICT (id) DO UPDATE 
-SET 
-  name = EXCLUDED.name, 
-  fee = EXCLUDED.fee, 
-  subscription_type = EXCLUDED.subscription_type, 
-  started_at = EXCLUDED.started_at, 
-  ended_at = EXCLUDED.ended_at, 
-  due_at = EXCLUDED.due_at, 
-  updated_at = NOW();`
-
-const PostgresGetSQL = `SELECT 
-  subscriptions.id, 
-  subscriptions.name, 
-  subscriptions.fee, 
-  subscriptions.subscription_type,
-  subscriptions.started_at, 
-  subscriptions.ended_at, 
-  subscriptions.due_at, 
-  subscriptions.created_at, 
-  subscriptions.updated_at 
-FROM 
-  subscriptions
-WHERE 
-  id = $1;`
-
-const PostgresDeleteSQL = `DELETE
-FROM 
-  subscriptions 
-WHERE 
-  id = $1;`
-
-const PostgresListSQL = `SELECT 
-  subscriptions.id, 
-  subscriptions.name, 
-  subscriptions.fee, 
-  subscriptions.subscription_type, 
-  subscriptions.started_at, 
-  subscriptions.ended_at, 
-  subscriptions.due_at, 
-  subscriptions.created_at, 
-  subscriptions.updated_at 
-FROM 
-  subscriptions`
-
-const PostgresSizeSQL = `SELECT
-  COUNT(subscriptions.id)
-FROM subscriptions`

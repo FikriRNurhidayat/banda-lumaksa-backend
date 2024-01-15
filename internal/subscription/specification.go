@@ -100,3 +100,50 @@ func EndedBetween(start time.Time, end time.Time) Specification {
 		End:   end,
 	}
 }
+
+type LimitSpecification struct {
+	Limit uint32
+}
+
+func (LimitSpecification) Call(subscription Subscription) bool {
+	return true
+}
+
+func Limit(limit uint32) Specification {
+	return LimitSpecification{
+		Limit: limit,
+	}
+}
+
+type OffsetSpecification struct {
+	Offset uint32
+}
+
+func (OffsetSpecification) Call(subscription Subscription) bool {
+	return true
+}
+
+func Offset(offset uint32) Specification {
+	return OffsetSpecification{
+		Offset: offset,
+	}
+}
+
+type SortSpecification struct {
+	Args []SortArg
+}
+
+func (SortSpecification) Call(subscription Subscription) bool {
+	return true
+}
+
+type SortArg struct {
+	Key       string
+	Direction string
+}
+
+func Sort(args ...SortArg) Specification {
+	return SortSpecification{
+		Args: args,
+	}
+}

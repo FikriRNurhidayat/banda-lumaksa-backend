@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/fikrirnurhidayat/banda-lumaksa/pkg/exists"
@@ -21,11 +22,15 @@ type ListSubscriptionsParams struct {
 	DueTo       time.Time
 	CreatedFrom time.Time
 	CreatedTo   time.Time
+	Page        uint32
+	PageSize    uint32
 }
+
 type ListSubscriptionsResult struct {
 	Size          uint32
 	Page          uint32
-	Limit         uint32
+	PageSize      uint32
+	PageCount     uint32
 	Subscriptions []Subscription
 }
 
@@ -60,6 +65,17 @@ func (u *ListSubscriptionsServiceImpl) Call(ctx context.Context, params *ListSub
 		specs = append(specs, DueBetween(params.DueFrom, params.DueTo))
 	}
 
+	if !exists.Number(params.Page) {
+		params.Page = 1
+	}
+
+	if !exists.Number(params.PageSize) {
+		params.PageSize = 10
+	}
+
+	specs = append(specs, Limit(params.PageSize))
+	specs = append(specs, Offset((params.Page-1)*params.PageSize))
+
 	subs, err := u.subscriptionRepository.List(ctx, specs...)
 	if err != nil {
 		return nil, err
@@ -73,8 +89,9 @@ func (u *ListSubscriptionsServiceImpl) Call(ctx context.Context, params *ListSub
 	return &ListSubscriptionsResult{
 		Subscriptions: subs,
 		Size:          size,
-		Page:          1,
-		Limit:         10,
+		Page:          params.Page,
+		PageSize:      params.PageSize,
+		PageCount:     uint32(math.Ceil(float64(size) / float64(params.PageSize))),
 	}, nil
 }
 

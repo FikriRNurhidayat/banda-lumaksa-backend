@@ -21,7 +21,7 @@ var (
 )
 
 func init() {
-	db, err := sql.Open("postgres", "postgresql://fain:awurenwae@localhost:5432/banda_lumaksa_development?sslmode=disable")
+	db, err := sql.Open("postgres", "postgresql://fain:awurenwae@127.0.0.1:5432/banda_lumaksa_development?sslmode=disable")
 	if err != nil {
 		log.Fatal("Failed to connect to database!")
 	}

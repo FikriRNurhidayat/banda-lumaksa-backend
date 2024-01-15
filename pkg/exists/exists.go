@@ -2,8 +2,6 @@ package exists
 
 import (
 	"time"
-
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/values"
 )
 
 func String(value string) bool {
@@ -11,5 +9,9 @@ func String(value string) bool {
 }
 
 func Date(value time.Time) bool {
-	return value != values.NoTime
+	return !value.IsZero()
+}
+
+func Number(value uint32) bool {
+	return value != 0
 }

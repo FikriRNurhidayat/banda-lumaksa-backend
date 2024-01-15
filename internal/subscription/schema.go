@@ -1,10 +1,22 @@
 package subscription
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type MaybeTime time.Time
+
+func (t MaybeTime) MarshalJSON() ([]byte, error) {
+	tt := time.Time(t)
+	if tt.IsZero() {
+		return []byte("null"), nil
+	}
+
+	return json.Marshal(tt)
+}
 
 type SubscriptionResponse struct {
 	ID        uuid.UUID `json:"id"`
@@ -12,7 +24,7 @@ type SubscriptionResponse struct {
 	Fee       int32     `json:"fee"`
 	Type      string    `json:"type"`
 	StartedAt time.Time `json:"started_at"`
-	EndedAt   time.Time `json:"ended_at"`
+	EndedAt   MaybeTime `json:"ended_at"`
 	DueAt     time.Time `json:"due_at"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -52,7 +64,7 @@ func NewSubscriptionResponse(subscription Subscription) SubscriptionResponse {
 		Fee:       subscription.Fee,
 		Type:      subscription.Type.String(),
 		StartedAt: subscription.StartedAt,
-		EndedAt:   subscription.EndedAt,
+		EndedAt:   MaybeTime(subscription.EndedAt),
 		DueAt:     subscription.DueAt,
 		CreatedAt: subscription.CreatedAt,
 		UpdatedAt: subscription.UpdatedAt,

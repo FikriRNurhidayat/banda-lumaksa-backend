@@ -107,6 +107,8 @@ func (ctl *ControllerImpl) ListSubscriptions(c echo.Context) error {
 
 	if err := echo.QueryParamsBinder(c).
 		String("name_like", &params.NameLike).
+		Uint32("page", &params.Page).
+		Uint32("page_size", &params.PageSize).
 		Time("created_from", &params.CreatedFrom, time.RFC3339).
 		Time("created_to", &params.CreatedFrom, time.RFC3339).
 		Time("started_from", &params.StartedFrom, time.RFC3339).
@@ -134,8 +136,8 @@ func (ctl *ControllerImpl) ListSubscriptions(c echo.Context) error {
 
 	response := &ListSubscriptionsResponse{
 		Page:          result.Page,
-		PageCount:     0,
-		PageSize:      result.Limit,
+		PageCount:     result.PageCount,
+		PageSize:      result.PageSize,
 		Size:          result.Size,
 		Subscriptions: NewSubscriptionsResponse(result.Subscriptions),
 	}
