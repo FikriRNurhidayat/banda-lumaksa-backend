@@ -32,12 +32,14 @@ func (r *PostgresRepository) List(ctx context.Context, specs ...Specification) (
 
 	queryStr, queryArgs := r.buildQuery(specs...)
 
-	stmt, err := r.db.PrepareContext(ctx, query+queryStr)
+	query = query + queryStr
+
+	stmt, err := r.db.PrepareContext(ctx, query)
 	if err != nil {
 		return EmptySubscriptions, err
 	}
 
-	rows, err := stmt.QueryContext(ctx, queryArgs)
+	rows, err := stmt.QueryContext(ctx, queryArgs...)
 	if err != nil {
 		return EmptySubscriptions, err
 	}
@@ -66,7 +68,7 @@ func (r *PostgresRepository) Size(ctx context.Context, specs ...Specification) (
 		return 0, err
 	}
 
-	rows, err := stmt.QueryContext(ctx, queryArgs)
+	rows, err := stmt.QueryContext(ctx, queryArgs...)
 	if err != nil {
 		return 0, err
 	}
@@ -139,8 +141,10 @@ func (r *PostgresRepository) Save(ctx context.Context, subscription Subscription
 	return nil
 }
 
-func NewPostgresRepository() Repository {
-	return &PostgresRepository{}
+func NewPostgresRepository(db *sql.DB) Repository {
+	return &PostgresRepository{
+		db: db,
+	}
 }
 
 func (s *PostgresSubscriptionRow) NamedArg() []sql.NamedArg {
@@ -194,22 +198,34 @@ func (*PostgresRepository) scanRow(rows *sql.Rows) (*PostgresSubscriptionRow, er
 	return row, nil
 }
 
-func (r *PostgresRepository) buildQuery(specs ...Specification) (string, []sql.NamedArg) {
+func (r *PostgresRepository) buildQuery(specs ...Specification) (string, []any) {
 	var conditions []string
-	var args []sql.NamedArg
+	var namedArgs []sql.NamedArg
 
 	if len(specs) == 0 {
-		return "", []sql.NamedArg{}
+		return "", []any{}
 	}
 
 	for _, spec := range specs {
 		queryStr, queryArgs := r.specToSQL(spec)
+		if queryStr == "" {
+			continue
+		}
 		condition := " (" + queryStr + ") "
 		conditions = append(conditions, condition)
-		args = append(args, queryArgs...)
+		namedArgs = append(namedArgs, queryArgs...)
 	}
 
-	return " WHERE " + r.joinConditions(conditions, "AND"), args
+	if len(conditions) == 0 {
+		return "", []any{}
+	}
+
+	qargs := make([]interface{}, len(namedArgs))
+	for i, namedArg := range namedArgs {
+		namedArgs[i] = namedArg
+	}
+
+	return "WHERE " + r.joinConditions(conditions, "AND"), qargs
 }
 
 func (*PostgresRepository) specToSQL(spec Specification) (string, []sql.NamedArg) {

@@ -23,15 +23,15 @@ func (u *CancelSubscriptionUseCaseImpl) Call(ctx context.Context, params *Cancel
 		return nil, err
 	}
 
-  if err := u.subscriptionRepository.Delete(ctx, s.ID); err != nil {
-    return nil, err
-  }
+	if err := u.subscriptionRepository.Delete(ctx, s.ID); err != nil {
+		return nil, err
+	}
 
-  return &CancelSubscriptionResult{}, nil
+	return &CancelSubscriptionResult{}, nil
 }
 
-func NewCancelSubscriptionUseCase() CancelSubscriptionUseCase {
+func NewCancelSubscriptionUseCase(subscriptionRepository Repository) CancelSubscriptionUseCase {
 	return &CancelSubscriptionUseCaseImpl{
-		subscriptionRepository: nil,
+		subscriptionRepository: subscriptionRepository,
 	}
 }

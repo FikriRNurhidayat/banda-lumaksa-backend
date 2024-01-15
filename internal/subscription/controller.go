@@ -1,7 +1,6 @@
 package subscription
 
 import (
-	"fmt"
 	"net/http"
 	"reflect"
 	"time"
@@ -10,6 +9,7 @@ import (
 )
 
 type Controller interface {
+	Register(*echo.Echo)
 	CreateSubscription(ctx echo.Context) error
 	CancelSubscription(ctx echo.Context) error
 	GetSubscription(ctx echo.Context) error
@@ -21,6 +21,13 @@ type ControllerImpl struct {
 	CancelSubscriptionUseCase CancelSubscriptionUseCase
 	GetSubscriptionUseCase    GetSubscriptionUseCase
 	ListSubscriptionsUseCase  ListSubscriptionsUseCase
+}
+
+func (ctl *ControllerImpl) Register(e *echo.Echo) {
+	e.POST("/v1/subscriptions", ctl.CreateSubscription)
+	e.DELETE("/v1/subscriptions/:id", ctl.CancelSubscription)
+	e.GET("/v1/subscriptions/:id", ctl.GetSubscription)
+	e.GET("/v1/subscriptions", ctl.ListSubscriptions)
 }
 
 // CancelSubscription implements Controller.
@@ -58,11 +65,13 @@ func (ctl *ControllerImpl) ListSubscriptions(c echo.Context) error {
 		}).
 		FailFast(true).
 		BindError(); err != nil {
+		c.Logger().Error(err.Error())
 		return err
 	}
 
 	result, err := ctl.ListSubscriptionsUseCase.Call(c.Request().Context(), params)
 	if err != nil {
+		c.Logger().Error(err.Error())
 		return err
 	}
 

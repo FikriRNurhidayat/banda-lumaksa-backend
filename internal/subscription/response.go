@@ -20,11 +20,11 @@ type SubscriptionResponse struct {
 type SubscriptionsResponse []SubscriptionResponse
 
 type ListSubscriptionsResponse struct {
-	Page          uint32                 `json:"page"`
-	PageCount     uint32                 `json:"page_count"`
-	PageSize      uint32                 `json:"page_size"`
-	Size          uint32                 `json:"size"`
-	Subscriptions []SubscriptionResponse `json:"subscriptions"`
+	Page          uint32                `json:"page"`
+	PageCount     uint32                `json:"page_count"`
+	PageSize      uint32                `json:"page_size"`
+	Size          uint32                `json:"size"`
+	Subscriptions SubscriptionsResponse `json:"subscriptions"`
 }
 
 func SubscriptionResponseFromSubscription(subscription Subscription) SubscriptionResponse {
@@ -41,7 +41,7 @@ func SubscriptionResponseFromSubscription(subscription Subscription) Subscriptio
 }
 
 func SubscriptionsResponseFromSubscriptions(subscriptions Subscriptions) SubscriptionsResponse {
-	var subscriptionsResponse SubscriptionsResponse
+	subscriptionsResponse := SubscriptionsResponse{}
 
 	for _, s := range subscriptions {
 		subscriptionsResponse = append(subscriptionsResponse, SubscriptionResponseFromSubscription(s))

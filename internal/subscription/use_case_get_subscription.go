@@ -30,8 +30,8 @@ func (u *GetSubscriptionUseCaseImpl) Call(ctx context.Context, params *GetSubscr
 	}, nil
 }
 
-func NewGetSubscriptionUseCase() GetSubscriptionUseCase {
+func NewGetSubscriptionUseCase(subscriptionRepository Repository) GetSubscriptionUseCase {
 	return &GetSubscriptionUseCaseImpl{
-		subscriptionRepository: nil,
+		subscriptionRepository: subscriptionRepository,
 	}
 }

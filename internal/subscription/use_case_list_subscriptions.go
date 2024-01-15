@@ -77,8 +77,8 @@ func (u *ListSubscriptionsUseCaseImpl) Call(ctx context.Context, params *ListSub
 	}, nil
 }
 
-func NewListSubscriptionsUseCase() ListSubscriptionsUseCase {
+func NewListSubscriptionsUseCase(subscriptionRepository Repository) ListSubscriptionsUseCase {
 	return &ListSubscriptionsUseCaseImpl{
-		subscriptionRepository: nil,
+		subscriptionRepository: subscriptionRepository,
 	}
 }

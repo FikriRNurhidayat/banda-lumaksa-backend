@@ -57,9 +57,9 @@ func (u *CreateSubscriptionUseCaseImpl) Call(ctx context.Context, params *Create
 	}, nil
 }
 
-func NewCreateSubscriptionUseCase() CreateSubscriptionUseCase {
+func NewCreateSubscriptionUseCase(subscriptionRepository Repository) CreateSubscriptionUseCase {
 	return &CreateSubscriptionUseCaseImpl{
-		subscriptionRepository: nil,
+		subscriptionRepository: subscriptionRepository,
 	}
 }
 

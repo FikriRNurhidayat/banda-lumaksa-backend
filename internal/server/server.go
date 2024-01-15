@@ -1,16 +1,43 @@
 package server
 
-import "net/http"
+import (
+	"fmt"
+
+	"github.com/labstack/echo/v4"
+)
+
+type Controller interface {
+	Register(*echo.Echo)
+}
 
 type Server struct {
-	http.Server
+	echo *echo.Echo
 	Port uint
 }
 
-func (*Server) Listen() err {
+type ServerBuilder func(*Server)
 
+func (s *Server) Start() error {
+	return s.echo.Start(fmt.Sprintf(":%d", s.Port))
 }
 
-func New() *Server {
-	return &Server{}
+func WithControllers(controllers ...Controller) ServerBuilder {
+	return func(s *Server) {
+		for _, ctl := range controllers {
+			ctl.Register(s.echo)
+		}
+	}
+}
+
+func New(builders ...ServerBuilder) *Server {
+	server := &Server{
+		echo: echo.New(),
+		Port: 3000,
+	}
+
+	for _, build := range builders {
+		build(server)
+	}
+
+	return server
 }
