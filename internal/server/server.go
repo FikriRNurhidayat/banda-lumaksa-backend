@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/errors"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
@@ -38,6 +39,18 @@ func New(builders ...ServerBuilder) *Server {
 
 	server.echo.Use(middleware.Logger())
 	server.echo.Use(middleware.Recover())
+
+	server.echo.HTTPErrorHandler = func(err error, c echo.Context) {
+		if val, ok := err.(*errors.Error); ok {
+			c.JSON(val.Code, echo.Map{
+				"error": val,
+			})
+
+			return
+		}
+
+		server.echo.DefaultHTTPErrorHandler(err, c)
+	}
 
 	for _, build := range builders {
 		build(server)

@@ -13,3 +13,8 @@ type Transaction struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+type Transactions []Transaction
+
+var NoTransactions = Transactions{}
+var NoTransaction = Transaction{}

@@ -1,14 +1,11 @@
 package main
 
 import (
-	"log"
-
+	"context"
 	"database/sql"
-
-	_ "github.com/lib/pq"
-
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/server"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/subscription"
+	_ "github.com/lib/pq"
+	"log"
 )
 
 func main() {
@@ -17,15 +14,8 @@ func main() {
 		log.Fatal("Failed to connect to database!")
 	}
 
-	subscriptionController := subscription.InitializeHandlers(db)
-
-	srv := server.New(
-		server.WithControllers(
-			subscriptionController,
-		),
-	)
-
-	if err := srv.Start(); err != nil {
-		log.Fatal("Failed to start server.")
+	subscriptionCommand := subscription.InitializeCommands(db)
+	if err := subscriptionCommand.ChargeSubscriptions(context.TODO()); err != nil {
+		log.Fatal(err.Error())
 	}
 }

@@ -6,10 +6,10 @@ import (
 	"github.com/google/uuid"
 )
 
-type Repository interface {
+type SubscriptionRepository interface {
 	Save(context.Context, Subscription) error
 	Get(context.Context, uuid.UUID) (Subscription, error)
 	Delete(context.Context, uuid.UUID) error
-	List(context.Context, ...Specification) ([]Subscription, error)
-	Size(context.Context, ...Specification) (uint32, error)
+	List(context.Context, ...SubscriptionSpecification) ([]Subscription, error)
+	Size(context.Context, ...SubscriptionSpecification) (uint32, error)
 }

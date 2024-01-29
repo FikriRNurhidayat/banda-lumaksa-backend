@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type Specification interface {
+type SubscriptionSpecification interface {
 	Call(subscription Subscription) bool
 }
 
@@ -17,7 +17,7 @@ func (spec NameLikeSpecification) Call(subscription Subscription) bool {
 	return strings.Contains(subscription.Name, spec.Substring)
 }
 
-func NameLike(value string) Specification {
+func NameLike(value string) SubscriptionSpecification {
 	return &NameLikeSpecification{
 		Substring: value,
 	}
@@ -31,7 +31,7 @@ func (spec TypeIsSpecification) Call(subscription Subscription) bool {
 	return subscription.Type == spec.Type
 }
 
-func TypeIs(value Type) Specification {
+func TypeIs(value Type) SubscriptionSpecification {
 	return &TypeIsSpecification{
 		Type: value,
 	}
@@ -46,11 +46,17 @@ func (spec DueBetweenSpecification) Call(subscription Subscription) bool {
 	return subscription.DueAt.After(spec.Start) && subscription.DueAt.Before(spec.End)
 }
 
-func DueBetween(start time.Time, end time.Time) Specification {
+func DueBetween(start time.Time, end time.Time) SubscriptionSpecification {
 	return &DueBetweenSpecification{
 		Start: start,
 		End:   end,
 	}
+}
+
+func DueIn(now time.Time) SubscriptionSpecification {
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	endOfDay := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
+	return DueBetween(startOfDay, endOfDay)
 }
 
 type CreatedBetweenSpecification struct {
@@ -62,7 +68,7 @@ func (spec CreatedBetweenSpecification) Call(subscription Subscription) bool {
 	return subscription.CreatedAt.After(spec.Start) && subscription.CreatedAt.Before(spec.End)
 }
 
-func CreatedBetween(start time.Time, end time.Time) Specification {
+func CreatedBetween(start time.Time, end time.Time) SubscriptionSpecification {
 	return CreatedBetweenSpecification{
 		Start: start,
 		End:   end,
@@ -78,7 +84,7 @@ func (spec StartedBetweenSpecification) Call(subscription Subscription) bool {
 	return subscription.StartedAt.After(spec.Start) && subscription.StartedAt.Before(spec.End)
 }
 
-func StartedBetween(start time.Time, end time.Time) Specification {
+func StartedBetween(start time.Time, end time.Time) SubscriptionSpecification {
 	return StartedBetweenSpecification{
 		Start: start,
 		End:   end,
@@ -94,10 +100,24 @@ func (spec EndedBetweenSpecification) Call(subscription Subscription) bool {
 	return subscription.EndedAt.After(spec.Start) && subscription.EndedAt.Before(spec.End)
 }
 
-func EndedBetween(start time.Time, end time.Time) Specification {
+func EndedBetween(start time.Time, end time.Time) SubscriptionSpecification {
 	return EndedBetweenSpecification{
 		Start: start,
 		End:   end,
+	}
+}
+
+type NotEndedSpecification struct {
+	Now time.Time
+}
+
+func (spec NotEndedSpecification) Call(subscription Subscription) bool {
+	return subscription.EndedAt.Before(spec.Now)
+}
+
+func NotEnded(now time.Time) SubscriptionSpecification {
+	return NotEndedSpecification{
+		Now: now,
 	}
 }
 
@@ -109,7 +129,7 @@ func (LimitSpecification) Call(subscription Subscription) bool {
 	return true
 }
 
-func Limit(limit uint32) Specification {
+func Limit(limit uint32) SubscriptionSpecification {
 	return LimitSpecification{
 		Limit: limit,
 	}
@@ -123,7 +143,7 @@ func (OffsetSpecification) Call(subscription Subscription) bool {
 	return true
 }
 
-func Offset(offset uint32) Specification {
+func Offset(offset uint32) SubscriptionSpecification {
 	return OffsetSpecification{
 		Offset: offset,
 	}
@@ -142,7 +162,7 @@ type SortArg struct {
 	Direction string
 }
 
-func Sort(args ...SortArg) Specification {
+func Sort(args ...SortArg) SubscriptionSpecification {
 	return SortSpecification{
 		Args: args,
 	}

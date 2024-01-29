@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -76,3 +77,7 @@ type Subscriptions []Subscription
 
 var NoSubscription = Subscription{}
 var NoSubscriptions = []Subscription{}
+
+func (s Subscription) GetTransactionDescription() string {
+	return fmt.Sprintf("Pembayaran biaya langganan untuk layanan %s, senilai %d.", s.Name, s.Fee)
+}

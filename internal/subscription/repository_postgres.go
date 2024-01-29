@@ -6,6 +6,7 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/manager"
 	"github.com/google/uuid"
 )
 
@@ -21,8 +22,8 @@ type PostgresSubscriptionRow struct {
 	UpdatedAt        time.Time
 }
 
-type PostgresRepository struct {
-	db *sql.DB
+type PostgresSubscriptionRepository struct {
+	dbm manager.DatabaseManager
 }
 
 const TableName = "subscriptions"
@@ -39,11 +40,11 @@ var Columns []string = []string{
 	"updated_at",
 }
 
-func (r *PostgresRepository) List(ctx context.Context, specs ...Specification) ([]Subscription, error) {
+func (r *PostgresSubscriptionRepository) List(ctx context.Context, specs ...SubscriptionSpecification) ([]Subscription, error) {
 	var subs []Subscription
 	var err error
 
-	builder := sq.Select(Columns...).From("subscriptions")
+	builder := sq.Select(Columns...).From(TableName)
 	builder = r.Filter(builder, specs...)
 	builder = r.Paginate(builder, specs...)
 	queryStr, queryArgs, err := builder.PlaceholderFormat(sq.Dollar).ToSql()
@@ -51,7 +52,7 @@ func (r *PostgresRepository) List(ctx context.Context, specs ...Specification) (
 		return NoSubscriptions, err
 	}
 
-	rows, err := r.db.QueryContext(ctx, queryStr, queryArgs...)
+	rows, err := r.dbm.Querier(ctx).QueryContext(ctx, queryStr, queryArgs...)
 	if err != nil {
 		return NoSubscriptions, err
 	}
@@ -68,16 +69,16 @@ func (r *PostgresRepository) List(ctx context.Context, specs ...Specification) (
 	return subs, nil
 }
 
-func (r *PostgresRepository) Size(ctx context.Context, specs ...Specification) (uint32, error) {
+func (r *PostgresSubscriptionRepository) Size(ctx context.Context, specs ...SubscriptionSpecification) (uint32, error) {
 	var count uint32
 	var err error
-	builder := r.Filter(sq.Select("COUNT(id)").From("subscriptions"), specs...)
+	builder := r.Filter(sq.Select("COUNT(id)").From(TableName), specs...)
 	query, args, err := builder.PlaceholderFormat(sq.Dollar).ToSql()
 	if err != nil {
 		return 0, err
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.dbm.Querier(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -91,9 +92,9 @@ func (r *PostgresRepository) Size(ctx context.Context, specs ...Specification) (
 	return count, nil
 }
 
-func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresSubscriptionRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query, args, err := sq.
-		Delete("subscriptions").
+		Delete(TableName).
 		Where(sq.Eq{"id": id.String()}).
 		PlaceholderFormat(sq.Dollar).
 		ToSql()
@@ -101,25 +102,25 @@ func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	if _, err := r.db.ExecContext(ctx, query, args...); err != nil {
+	if _, err := r.dbm.Querier(ctx).ExecContext(ctx, query, args...); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *PostgresRepository) Get(ctx context.Context, id uuid.UUID) (Subscription, error) {
+func (r *PostgresSubscriptionRepository) Get(ctx context.Context, id uuid.UUID) (Subscription, error) {
 	var subscription Subscription
 	var err error
 
 	query, args, err := sq.
 		Select(Columns...).
-		From("subscriptions").
+		From(TableName).
 		Where(sq.Eq{"id": id.String()}).
 		PlaceholderFormat(sq.Dollar).
 		ToSql()
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.dbm.Querier(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
 		return NoSubscription, err
 	}
@@ -136,33 +137,44 @@ func (r *PostgresRepository) Get(ctx context.Context, id uuid.UUID) (Subscriptio
 	return subscription, nil
 }
 
-func (r *PostgresRepository) Save(ctx context.Context, subscription Subscription) error {
+func (r *PostgresSubscriptionRepository) Save(ctx context.Context, subscription Subscription) error {
 	row := r.PostgresSubscriptionRow(subscription)
 
 	query, args, err := sq.
-		Insert("subscriptions").
+		Insert(TableName).
 		Columns(Columns...).
-		Values(row.ID.String(), row.Name, row.Fee, row.SubscriptionType, row.StartedAt, row.EndedAt, row.DueAt, row.CreatedAt, row.UpdatedAt).
+		Values(
+			row.ID.String(),
+			row.Name,
+			row.Fee,
+			row.SubscriptionType,
+			row.StartedAt,
+			row.EndedAt,
+			row.DueAt,
+			row.CreatedAt,
+			row.UpdatedAt,
+		).
+		Suffix("ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, fee = EXCLUDED.fee, subscription_type = EXCLUDED.subscription_type, started_at = EXCLUDED.started_at, ended_at = EXCLUDED.ended_at, due_at = EXCLUDED.due_at, updated_at = EXCLUDED.updated_at").
 		PlaceholderFormat(sq.Dollar).
 		ToSql()
 	if err != nil {
 		return err
 	}
 
-	if _, err := r.db.ExecContext(ctx, query, args...); err != nil {
+	if _, err := r.dbm.Querier(ctx).ExecContext(ctx, query, args...); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func NewPostgresRepository(db *sql.DB) Repository {
-	return &PostgresRepository{
-		db: db,
+func NewPostgresSubscriptionRepository(dbm manager.DatabaseManager) SubscriptionRepository {
+	return &PostgresSubscriptionRepository{
+		dbm: dbm,
 	}
 }
 
-func (*PostgresRepository) PostgresSubscriptionRow(subscription Subscription) *PostgresSubscriptionRow {
+func (*PostgresSubscriptionRepository) PostgresSubscriptionRow(subscription Subscription) *PostgresSubscriptionRow {
 	return &PostgresSubscriptionRow{
 		ID:               subscription.ID,
 		Name:             subscription.Name,
@@ -171,7 +183,7 @@ func (*PostgresRepository) PostgresSubscriptionRow(subscription Subscription) *P
 		StartedAt:        subscription.StartedAt,
 		EndedAt: sql.NullTime{
 			Time:  subscription.EndedAt,
-			Valid: subscription.EndedAt.IsZero(),
+			Valid: !subscription.EndedAt.IsZero(),
 		},
 		DueAt:     subscription.DueAt,
 		CreatedAt: subscription.CreatedAt,
@@ -179,7 +191,7 @@ func (*PostgresRepository) PostgresSubscriptionRow(subscription Subscription) *P
 	}
 }
 
-func (*PostgresRepository) Scan(rows *sql.Rows) (*PostgresSubscriptionRow, error) {
+func (*PostgresSubscriptionRepository) Scan(rows *sql.Rows) (*PostgresSubscriptionRow, error) {
 	row := &PostgresSubscriptionRow{}
 
 	if err := rows.Scan(
@@ -199,7 +211,7 @@ func (*PostgresRepository) Scan(rows *sql.Rows) (*PostgresSubscriptionRow, error
 	return row, nil
 }
 
-func (r *PostgresRepository) Filter(builder sq.SelectBuilder, specs ...Specification) sq.SelectBuilder {
+func (r *PostgresSubscriptionRepository) Filter(builder sq.SelectBuilder, specs ...SubscriptionSpecification) sq.SelectBuilder {
 	for _, spec := range specs {
 		switch v := spec.(type) {
 		case NameLikeSpecification:
@@ -212,6 +224,8 @@ func (r *PostgresRepository) Filter(builder sq.SelectBuilder, specs ...Specifica
 			builder = builder.Where(sq.LtOrEq{"started_at": v.End}).Where(sq.GtOrEq{"started_at": v.Start})
 		case EndedBetweenSpecification:
 			builder = builder.Where(sq.LtOrEq{"ended_at": v.End}).Where(sq.GtOrEq{"ended_at": v.Start})
+		case NotEndedSpecification:
+			builder = builder.Where("ended_at >= ? OR ended_at IS NULL", v.Now)
 		case DueBetweenSpecification:
 			builder = builder.Where(sq.LtOrEq{"due_at": v.End}).Where(sq.GtOrEq{"due_at": v.Start})
 		}
@@ -220,7 +234,7 @@ func (r *PostgresRepository) Filter(builder sq.SelectBuilder, specs ...Specifica
 	return builder
 }
 
-func (r *PostgresRepository) Paginate(builder sq.SelectBuilder, specs ...Specification) sq.SelectBuilder {
+func (r *PostgresSubscriptionRepository) Paginate(builder sq.SelectBuilder, specs ...SubscriptionSpecification) sq.SelectBuilder {
 	for _, spec := range specs {
 		switch v := spec.(type) {
 		case LimitSpecification:

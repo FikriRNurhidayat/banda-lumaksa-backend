@@ -8,7 +8,7 @@ import (
 	echo "github.com/labstack/echo/v4"
 )
 
-type Controller interface {
+type SubscrpitionController interface {
 	Register(*echo.Echo)
 	CreateSubscription(c echo.Context) error
 	CancelSubscription(c echo.Context) error
@@ -16,21 +16,18 @@ type Controller interface {
 	ListSubscriptions(c echo.Context) error
 }
 
-type ControllerImpl struct {
-	CreateSubscriptionService CreateSubscriptionService
-	CancelSubscriptionService CancelSubscriptionService
-	GetSubscriptionService    GetSubscriptionService
-	ListSubscriptionsService  ListSubscriptionsService
+type SubscriptionControllerImpl struct {
+	subscriptionService SubscriptionService
 }
 
-func (ctl *ControllerImpl) Register(e *echo.Echo) {
+func (ctl *SubscriptionControllerImpl) Register(e *echo.Echo) {
 	e.POST("/v1/subscriptions", ctl.CreateSubscription)
 	e.DELETE("/v1/subscriptions/:id", ctl.CancelSubscription)
 	e.GET("/v1/subscriptions/:id", ctl.GetSubscription)
 	e.GET("/v1/subscriptions", ctl.ListSubscriptions)
 }
 
-func (ctl *ControllerImpl) CancelSubscription(c echo.Context) error {
+func (ctl *SubscriptionControllerImpl) CancelSubscription(c echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.Logger().Error(err.Error())
@@ -41,7 +38,7 @@ func (ctl *ControllerImpl) CancelSubscription(c echo.Context) error {
 		ID: id,
 	}
 
-	if _, err := ctl.CancelSubscriptionService.Call(c.Request().Context(), params); err != nil {
+	if _, err := ctl.subscriptionService.CancelSubscription(c.Request().Context(), params); err != nil {
 		c.Logger().Error(err.Error())
 		return err
 	}
@@ -49,7 +46,7 @@ func (ctl *ControllerImpl) CancelSubscription(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (ctl *ControllerImpl) CreateSubscription(c echo.Context) error {
+func (ctl *SubscriptionControllerImpl) CreateSubscription(c echo.Context) error {
 	payload := &CreateSubscriptionRequest{}
 
 	if err := c.Bind(&payload); err != nil {
@@ -57,7 +54,7 @@ func (ctl *ControllerImpl) CreateSubscription(c echo.Context) error {
 		return err
 	}
 
-	result, err := ctl.CreateSubscriptionService.Call(c.Request().Context(), &CreateSubscriptionParams{
+	result, err := ctl.subscriptionService.CreateSubscription(c.Request().Context(), &CreateSubscriptionParams{
 		Name:      payload.Name,
 		Fee:       payload.Fee,
 		Type:      GetType(payload.Type),
@@ -78,7 +75,7 @@ func (ctl *ControllerImpl) CreateSubscription(c echo.Context) error {
 	return c.JSON(http.StatusCreated, response)
 }
 
-func (ctl *ControllerImpl) GetSubscription(c echo.Context) error {
+func (ctl *SubscriptionControllerImpl) GetSubscription(c echo.Context) error {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.Logger().Error(err.Error())
@@ -89,7 +86,7 @@ func (ctl *ControllerImpl) GetSubscription(c echo.Context) error {
 		ID: id,
 	}
 
-	result, err := ctl.GetSubscriptionService.Call(c.Request().Context(), params)
+	result, err := ctl.subscriptionService.GetSubscription(c.Request().Context(), params)
 	if err != nil {
 		c.Logger().Error(err.Error())
 		return err
@@ -102,7 +99,7 @@ func (ctl *ControllerImpl) GetSubscription(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
-func (ctl *ControllerImpl) ListSubscriptions(c echo.Context) error {
+func (ctl *SubscriptionControllerImpl) ListSubscriptions(c echo.Context) error {
 	params := &ListSubscriptionsParams{}
 
 	if err := echo.QueryParamsBinder(c).
@@ -128,7 +125,7 @@ func (ctl *ControllerImpl) ListSubscriptions(c echo.Context) error {
 		return err
 	}
 
-	result, err := ctl.ListSubscriptionsService.Call(c.Request().Context(), params)
+	result, err := ctl.subscriptionService.ListSubscriptions(c.Request().Context(), params)
 	if err != nil {
 		c.Logger().Error(err.Error())
 		return err
@@ -145,16 +142,8 @@ func (ctl *ControllerImpl) ListSubscriptions(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
-func NewController(
-	listSubscriptionsSvc ListSubscriptionsService,
-	getSubscriptionSvc GetSubscriptionService,
-	createSubscriptionSvc CreateSubscriptionService,
-	cancelSubscriptionSvc CancelSubscriptionService,
-) Controller {
-	return &ControllerImpl{
-		CreateSubscriptionService: createSubscriptionSvc,
-		CancelSubscriptionService: cancelSubscriptionSvc,
-		GetSubscriptionService:    getSubscriptionSvc,
-		ListSubscriptionsService:  listSubscriptionsSvc,
+func NewSubscriptionController(subscriptionService SubscriptionService) SubscrpitionController {
+	return &SubscriptionControllerImpl{
+		subscriptionService: subscriptionService,
 	}
 }
