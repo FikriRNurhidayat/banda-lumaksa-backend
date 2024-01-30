@@ -3,7 +3,7 @@ package server
 import (
 	"fmt"
 
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/errors"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/errors"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )

@@ -3,11 +3,15 @@ package subscription
 import (
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type SubscriptionSpecification interface {
 	Call(subscription Subscription) bool
 }
+
+type SubscriptionSpecifications []SubscriptionSpecification
 
 type NameLikeSpecification struct {
 	Substring string
@@ -57,6 +61,20 @@ func DueIn(now time.Time) SubscriptionSpecification {
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	endOfDay := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
 	return DueBetween(startOfDay, endOfDay)
+}
+
+type DueBeforeSpecification struct {
+	Now time.Time
+}
+
+func (spec DueBeforeSpecification) Call(subscription Subscription) bool {
+	return subscription.DueAt.Before(spec.Now)
+}
+
+func DueBefore(now time.Time) SubscriptionSpecification {
+	return DueBeforeSpecification{
+		Now: now,
+	}
 }
 
 type CreatedBetweenSpecification struct {
@@ -121,49 +139,16 @@ func NotEnded(now time.Time) SubscriptionSpecification {
 	}
 }
 
-type LimitSpecification struct {
-	Limit uint32
+type WithIDSpecification struct {
+	ID uuid.UUID
 }
 
-func (LimitSpecification) Call(subscription Subscription) bool {
-	return true
+func (spec WithIDSpecification) Call(subscription Subscription) bool {
+	return spec.ID == subscription.ID
 }
 
-func Limit(limit uint32) SubscriptionSpecification {
-	return LimitSpecification{
-		Limit: limit,
-	}
-}
-
-type OffsetSpecification struct {
-	Offset uint32
-}
-
-func (OffsetSpecification) Call(subscription Subscription) bool {
-	return true
-}
-
-func Offset(offset uint32) SubscriptionSpecification {
-	return OffsetSpecification{
-		Offset: offset,
-	}
-}
-
-type SortSpecification struct {
-	Args []SortArg
-}
-
-func (SortSpecification) Call(subscription Subscription) bool {
-	return true
-}
-
-type SortArg struct {
-	Key       string
-	Direction string
-}
-
-func Sort(args ...SortArg) SubscriptionSpecification {
-	return SortSpecification{
-		Args: args,
+func WithID(id uuid.UUID) SubscriptionSpecification {
+	return WithIDSpecification{
+		ID: id,
 	}
 }

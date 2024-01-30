@@ -6,10 +6,12 @@ import (
 	"math"
 	"time"
 
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/errors"
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/manager"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/errors"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/manager"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/repository"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/specification"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/values"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/transaction"
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/values"
 	"github.com/fikrirnurhidayat/banda-lumaksa/pkg/exists"
 	"github.com/google/uuid"
 )
@@ -91,12 +93,12 @@ type SubscriptionServiceImpl struct {
 }
 
 func (s *SubscriptionServiceImpl) CancelSubscription(ctx context.Context, params *CancelSubscriptionParams) (*CancelSubscriptionResult, error) {
-	subscription, err := s.subscriptionRepository.Get(ctx, params.ID)
+	subscription, err := s.subscriptionRepository.Get(ctx, WithID(params.ID))
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.subscriptionRepository.Delete(ctx, subscription.ID); err != nil {
+	if err := s.subscriptionRepository.Delete(ctx, WithID(subscription.ID)); err != nil {
 		return nil, errors.ErrInternalServer
 	}
 
@@ -105,16 +107,21 @@ func (s *SubscriptionServiceImpl) CancelSubscription(ctx context.Context, params
 
 func (s *SubscriptionServiceImpl) ChargeSubscriptions(ctx context.Context, params *ChargeSubscriptionsParams) (*ChargeSubscriptionsResult, error) {
 	today := time.Now()
-	subscriptions, err := s.subscriptionRepository.List(ctx, DueIn(today), NotEnded(today))
+	iterator, err := s.subscriptionRepository.Each(ctx, repository.ListArgs[SubscriptionSpecification]{
+		Filters: SubscriptionSpecifications{DueBefore(today), NotEnded(today)},
+	})
 	if err != nil {
-		fmt.Println(err.Error())
 		return nil, errors.ErrInternalServer
 	}
 
-	for _, subscription := range subscriptions {
-		if _, err := s.chargeSubscription(ctx, subscription); err != nil {
-			fmt.Println(err.Error())
-			return nil, errors.ErrInternalServer
+	for iterator.Next() {
+		subscription, err := iterator.Entry()
+		if err != nil {
+			continue
+		}
+
+		if _, err := s.charge_subscription(ctx, subscription); err != nil {
+			continue
 		}
 	}
 
@@ -122,12 +129,12 @@ func (s *SubscriptionServiceImpl) ChargeSubscriptions(ctx context.Context, param
 }
 
 func (s *SubscriptionServiceImpl) ChargeSubscription(ctx context.Context, params *ChargeSubscriptionParams) (*ChargeSubscriptionResult, error) {
-	subscription, err := s.subscriptionRepository.Get(ctx, params.ID)
+	subscription, err := s.subscriptionRepository.Get(ctx, WithID(params.ID))
 	if err != nil {
 		return nil, ErrSubscriptionNotFound
 	}
 
-	subscription, err = s.chargeSubscription(ctx, subscription)
+	subscription, err = s.charge_subscription(ctx, subscription)
 	if err != nil {
 		return nil, errors.ErrInternalServer
 	}
@@ -151,10 +158,6 @@ func (s *SubscriptionServiceImpl) CreateSubscription(ctx context.Context, params
 		subscription.DueAt = s.computeDueAt(subscription, params.StartedAt)
 	}
 
-	// if now.After(subscription.DueAt) {
-	// 	return nil, ErrSubscriptionPastDueAt
-	// }
-
 	subscription.CreatedAt = now
 	subscription.UpdatedAt = now
 
@@ -169,7 +172,7 @@ func (s *SubscriptionServiceImpl) CreateSubscription(ctx context.Context, params
 }
 
 func (s *SubscriptionServiceImpl) GetSubscription(ctx context.Context, params *GetSubscriptionParams) (*GetSubscriptionResult, error) {
-	subscription, err := s.subscriptionRepository.Get(ctx, params.ID)
+	subscription, err := s.subscriptionRepository.Get(ctx, WithID(params.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -184,30 +187,30 @@ func (s *SubscriptionServiceImpl) GetSubscription(ctx context.Context, params *G
 }
 
 func (s *SubscriptionServiceImpl) ListSubscriptions(ctx context.Context, params *ListSubscriptionsParams) (*ListSubscriptionsResult, error) {
-	specs := []SubscriptionSpecification{}
+	filters := []SubscriptionSpecification{}
 
 	if exists.String(params.NameLike) {
-		specs = append(specs, NameLike(params.NameLike))
+		filters = append(filters, NameLike(params.NameLike))
 	}
 
 	if params.TypeIs != -1 {
-		specs = append(specs, TypeIs(params.TypeIs))
+		filters = append(filters, TypeIs(params.TypeIs))
 	}
 
 	if exists.Date(params.StartedFrom) && exists.Date(params.StartedTo) {
-		specs = append(specs, StartedBetween(params.StartedFrom, params.StartedTo))
+		filters = append(filters, StartedBetween(params.StartedFrom, params.StartedTo))
 	}
 
 	if exists.Date(params.EndedFrom) && exists.Date(params.EndedTo) {
-		specs = append(specs, EndedBetween(params.EndedFrom, params.EndedTo))
+		filters = append(filters, EndedBetween(params.EndedFrom, params.EndedTo))
 	}
 
 	if exists.Date(params.CreatedFrom) && exists.Date(params.CreatedTo) {
-		specs = append(specs, CreatedBetween(params.CreatedFrom, params.CreatedTo))
+		filters = append(filters, CreatedBetween(params.CreatedFrom, params.CreatedTo))
 	}
 
 	if exists.Date(params.DueFrom) && exists.Date(params.DueTo) {
-		specs = append(specs, DueBetween(params.DueFrom, params.DueTo))
+		filters = append(filters, DueBetween(params.DueFrom, params.DueTo))
 	}
 
 	if !exists.Number(params.Page) {
@@ -218,15 +221,16 @@ func (s *SubscriptionServiceImpl) ListSubscriptions(ctx context.Context, params 
 		params.PageSize = 10
 	}
 
-	specs = append(specs, Limit(params.PageSize))
-	specs = append(specs, Offset((params.Page-1)*params.PageSize))
-
-	subs, err := s.subscriptionRepository.List(ctx, specs...)
+	subs, err := s.subscriptionRepository.List(ctx, repository.ListArgs[SubscriptionSpecification]{
+		Filters: filters,
+		Limit:   specification.WithLimit(params.PageSize),
+		Offset:  specification.WithOffset((params.Page - 1) * params.PageSize),
+	})
 	if err != nil {
 		return nil, errors.ErrInternalServer
 	}
 
-	size, err := s.subscriptionRepository.Size(ctx, specs...)
+	size, err := s.subscriptionRepository.Size(ctx, filters...)
 	if err != nil {
 		return nil, errors.ErrInternalServer
 	}
@@ -253,7 +257,7 @@ func (s *SubscriptionServiceImpl) computeDueAt(subscription Subscription, startF
 	}
 }
 
-func (s *SubscriptionServiceImpl) chargeSubscription(ctx context.Context, subscription Subscription) (Subscription, error) {
+func (s *SubscriptionServiceImpl) charge_subscription(ctx context.Context, subscription Subscription) (Subscription, error) {
 	now := time.Now()
 	subscription.UpdatedAt = now
 	subscription.DueAt = s.computeDueAt(subscription, now)

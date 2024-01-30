@@ -14,7 +14,5 @@ type Transaction struct {
 	UpdatedAt   time.Time
 }
 
-type Transactions []Transaction
-
-var NoTransactions = Transactions{}
+var NoTransactions = []Transaction{}
 var NoTransaction = Transaction{}

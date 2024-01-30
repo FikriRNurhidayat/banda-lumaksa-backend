@@ -3,7 +3,7 @@ package subscription
 import (
 	"net/http"
 
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/errors"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/errors"
 )
 
 var (

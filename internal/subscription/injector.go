@@ -3,7 +3,7 @@ package subscription
 import (
 	"database/sql"
 
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/manager"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/manager"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/transaction"
 )
 

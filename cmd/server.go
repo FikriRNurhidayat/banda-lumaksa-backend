@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/lib/pq"
 
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/server"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/server"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/subscription"
 )
 
