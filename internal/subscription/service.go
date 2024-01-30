@@ -3,12 +3,12 @@ package subscription
 import (
 	"context"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/errors"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/manager"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/repository"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/service"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/specification"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/values"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/transaction"
@@ -36,15 +36,11 @@ type ListSubscriptionsParams struct {
 	DueTo       time.Time
 	CreatedFrom time.Time
 	CreatedTo   time.Time
-	Page        uint32
-	PageSize    uint32
+	Pagination  service.PaginationParams
 }
 
 type ListSubscriptionsResult struct {
-	Size          uint32
-	Page          uint32
-	PageSize      uint32
-	PageCount     uint32
+	Pagination    service.PaginationResult
 	Subscriptions []Subscription
 }
 
@@ -120,7 +116,7 @@ func (s *SubscriptionServiceImpl) ChargeSubscriptions(ctx context.Context, param
 			continue
 		}
 
-		if _, err := s.charge_subscription(ctx, subscription); err != nil {
+		if _, err := s.chargeSubscription(ctx, subscription); err != nil {
 			continue
 		}
 	}
@@ -134,7 +130,7 @@ func (s *SubscriptionServiceImpl) ChargeSubscription(ctx context.Context, params
 		return nil, ErrSubscriptionNotFound
 	}
 
-	subscription, err = s.charge_subscription(ctx, subscription)
+	subscription, err = s.chargeSubscription(ctx, subscription)
 	if err != nil {
 		return nil, errors.ErrInternalServer
 	}
@@ -213,20 +209,15 @@ func (s *SubscriptionServiceImpl) ListSubscriptions(ctx context.Context, params 
 		filters = append(filters, DueBetween(params.DueFrom, params.DueTo))
 	}
 
-	if !exists.Number(params.Page) {
-		params.Page = 1
-	}
-
-	if !exists.Number(params.PageSize) {
-		params.PageSize = 10
-	}
+	params.Pagination = params.Pagination.Normalize()
 
 	subs, err := s.subscriptionRepository.List(ctx, repository.ListArgs[SubscriptionSpecification]{
 		Filters: filters,
-		Limit:   specification.WithLimit(params.PageSize),
-		Offset:  specification.WithOffset((params.Page - 1) * params.PageSize),
+		Limit:   specification.WithLimit(params.Pagination.Limit()),
+		Offset:  specification.WithOffset(params.Pagination.Offset()),
 	})
 	if err != nil {
+		fmt.Println(err.Error())
 		return nil, errors.ErrInternalServer
 	}
 
@@ -237,10 +228,7 @@ func (s *SubscriptionServiceImpl) ListSubscriptions(ctx context.Context, params 
 
 	return &ListSubscriptionsResult{
 		Subscriptions: subs,
-		Size:          size,
-		Page:          params.Page,
-		PageSize:      params.PageSize,
-		PageCount:     uint32(math.Ceil(float64(size) / float64(params.PageSize))),
+		Pagination:    service.NewPaginationResult(params.Pagination, size),
 	}, nil
 }
 
@@ -257,7 +245,7 @@ func (s *SubscriptionServiceImpl) computeDueAt(subscription Subscription, startF
 	}
 }
 
-func (s *SubscriptionServiceImpl) charge_subscription(ctx context.Context, subscription Subscription) (Subscription, error) {
+func (s *SubscriptionServiceImpl) chargeSubscription(ctx context.Context, subscription Subscription) (Subscription, error) {
 	now := time.Now()
 	subscription.UpdatedAt = now
 	subscription.DueAt = s.computeDueAt(subscription, now)

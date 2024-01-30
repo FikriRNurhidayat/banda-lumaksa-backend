@@ -9,6 +9,7 @@ import (
 
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/server"
 	"github.com/fikrirnurhidayat/banda-lumaksa/internal/subscription"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/transaction"
 )
 
 func main() {
@@ -18,10 +19,12 @@ func main() {
 	}
 
 	subscriptionController := subscription.InitializeHandlers(db)
+	transactionController := transaction.InitializeHandlers(db)
 
 	srv := server.New(
 		server.WithControllers(
 			subscriptionController,
+			transactionController,
 		),
 	)
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/schema"
 	"github.com/google/uuid"
 )
 
@@ -33,10 +34,7 @@ type SubscriptionResponse struct {
 type SubscriptionsResponse []SubscriptionResponse
 
 type ListSubscriptionsResponse struct {
-	Page          uint32                `json:"page"`
-	PageCount     uint32                `json:"page_count"`
-	PageSize      uint32                `json:"page_size"`
-	Size          uint32                `json:"size"`
+	schema.PaginationResponse
 	Subscriptions SubscriptionsResponse `json:"subscriptions"`
 }
 

@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/schema"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/service"
 	"github.com/google/uuid"
 	echo "github.com/labstack/echo/v4"
 )
@@ -100,12 +102,14 @@ func (ctl *SubscriptionControllerImpl) GetSubscription(c echo.Context) error {
 }
 
 func (ctl *SubscriptionControllerImpl) ListSubscriptions(c echo.Context) error {
-	params := &ListSubscriptionsParams{}
+	params := &ListSubscriptionsParams{
+		Pagination: service.PaginationParams{},
+	}
 
 	if err := echo.QueryParamsBinder(c).
 		String("name_like", &params.NameLike).
-		Uint32("page", &params.Page).
-		Uint32("page_size", &params.PageSize).
+		Uint32("page", &params.Pagination.Page).
+		Uint32("page_size", &params.Pagination.PageSize).
 		Time("created_from", &params.CreatedFrom, time.RFC3339).
 		Time("created_to", &params.CreatedFrom, time.RFC3339).
 		Time("started_from", &params.StartedFrom, time.RFC3339).
@@ -132,11 +136,8 @@ func (ctl *SubscriptionControllerImpl) ListSubscriptions(c echo.Context) error {
 	}
 
 	response := &ListSubscriptionsResponse{
-		Page:          result.Page,
-		PageCount:     result.PageCount,
-		PageSize:      result.PageSize,
-		Size:          result.Size,
-		Subscriptions: NewSubscriptionsResponse(result.Subscriptions),
+		PaginationResponse: schema.NewPaginationResponse(result.Pagination),
+		Subscriptions:      NewSubscriptionsResponse(result.Subscriptions),
 	}
 
 	return c.JSON(http.StatusOK, response)
