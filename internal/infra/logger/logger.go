@@ -3,7 +3,9 @@ package logger
 import (
 	"log/slog"
 	"os"
+	"runtime/debug"
 
+	"github.com/fikrirnurhidayat/banda-lumaksa/pkg/exists"
 	"github.com/spf13/viper"
 )
 
@@ -31,6 +33,11 @@ func New() Logger {
 	viper.SetDefault("log.source", false)
 	viper.SetDefault("log.time", true)
 
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		
+	}
+
 	level, ok := levels[viper.GetString("log.level")]
 	if !ok {
 		level = levels["info"]
@@ -57,5 +64,10 @@ func New() Logger {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
 
-	return slog.New(handler)
+	logger := slog.New(handler)
+	if exists.String(bi.Main.Version) {
+		logger = logger.With(slog.String("v", bi.Main.Version))
+	}
+
+	return logger
 }
