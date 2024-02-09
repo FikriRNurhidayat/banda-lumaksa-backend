@@ -4,18 +4,22 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/manager"
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/repository"
-	"github.com/fikrirnurhidayat/banda-lumaksa/internal/common/specification"
+	common_repository "github.com/fikrirnurhidayat/banda-lumaksa/internal/common/repository"
+	common_specification "github.com/fikrirnurhidayat/banda-lumaksa/internal/common/specification"
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/infra/logger"
+	database_manager "github.com/fikrirnurhidayat/banda-lumaksa/internal/manager/database"
 )
 
 type PostgresRepository[Entity any, Specification any, Row any] struct {
-	dbm          manager.DatabaseManager
+	dbm          database_manager.DatabaseManager
+	logger       logger.Logger
 	tableName    string
 	columns      []string
+	schema       map[string]string
 	primaryKey   string
 	filter       func(...Specification) squirrel.Sqlizer
 	scan         func(*sql.Rows) (Row, error)
@@ -39,8 +43,10 @@ type PostgresIterator[Entity any, Row any] struct {
 type Option[Entity any, Specification any, Row any] struct {
 	TableName       string
 	Columns         []string
+	Schema          map[string]string
 	PrimaryKey      string
-	DatabaseManager manager.DatabaseManager
+	DatabaseManager database_manager.DatabaseManager
+	Logger          logger.Logger
 	Filter          func(...Specification) squirrel.Sqlizer
 	Scan            func(rows *sql.Rows) (Row, error)
 	Entity          func(Row) Entity
@@ -48,7 +54,7 @@ type Option[Entity any, Specification any, Row any] struct {
 	Values          func(Row) []any
 }
 
-func (i *PostgresIterator[Entity, Row]) Entry() (Entity, error) {
+func (i *PostgresIterator[Entity, Row]) Current() (Entity, error) {
 	row, err := i.scan(i.rows)
 	if err != nil {
 		return i.noEntity, err
@@ -78,7 +84,7 @@ func (r *PostgresRepository[Entity, Specification, Row]) Delete(ctx context.Cont
 	return nil
 }
 
-func (r *PostgresRepository[Entity, Specification, Row]) Each(ctx context.Context, args repository.ListArgs[Specification]) (repository.Iterator[Entity], error) {
+func (r *PostgresRepository[Entity, Specification, Row]) Each(ctx context.Context, args common_repository.ListArgs[Specification]) (common_repository.Iterator[Entity], error) {
 	rows, err := r.query(ctx, args)
 	if err != nil {
 		return nil, err
@@ -93,9 +99,9 @@ func (r *PostgresRepository[Entity, Specification, Row]) Each(ctx context.Contex
 }
 
 func (r *PostgresRepository[Entity, Specification, Row]) Get(ctx context.Context, specs ...Specification) (Entity, error) {
-	rows, err := r.query(ctx, repository.ListArgs[Specification]{
+	rows, err := r.query(ctx, common_repository.ListArgs[Specification]{
 		Filters: specs,
-		Limit:   specification.WithLimit(1),
+		Limit:   common_specification.WithLimit(1),
 	})
 	if err != nil {
 		return r.noEntity, err
@@ -113,7 +119,37 @@ func (r *PostgresRepository[Entity, Specification, Row]) Get(ctx context.Context
 	return r.noEntity, nil
 }
 
-func (r *PostgresRepository[Entity, Specification, Row]) List(ctx context.Context, args repository.ListArgs[Specification]) ([]Entity, error) {
+func (r *PostgresRepository[Entity, Specification, Row]) Exist(ctx context.Context, specs ...Specification) (bool, error) {
+	builder := squirrel.
+		Select("1").
+		From(r.tableName).
+		Where(r.filter(specs...)).
+		Limit(1)
+	queryStr, queryArgs, err := builder.PlaceholderFormat(squirrel.Dollar).ToSql()
+	if err != nil {
+		return false, err
+	}
+
+	rows, err := r.dbm.Querier(ctx).QueryContext(ctx, queryStr, queryArgs...)
+	if err != nil {
+		return false, err
+	}
+
+	var exist int
+
+	for rows.Next() {
+		err := rows.Scan(&exist)
+		if err == sql.ErrNoRows {
+			return false, nil
+		} else if err != nil {
+			return false, err
+		}
+	}
+
+	return exist == 1, nil
+}
+
+func (r *PostgresRepository[Entity, Specification, Row]) List(ctx context.Context, args common_repository.ListArgs[Specification]) ([]Entity, error) {
 	rows, err := r.query(ctx, args)
 	if err != nil {
 		return r.noEntities, err
@@ -132,7 +168,7 @@ func (r *PostgresRepository[Entity, Specification, Row]) List(ctx context.Contex
 	return entities, nil
 }
 
-// Save implements repository.Repository.
+// Save implements common_repository.Common_repository.
 func (r *PostgresRepository[Entity, Specification, Row]) Save(ctx context.Context, entity Entity) error {
 	row := r.row(entity)
 
@@ -180,25 +216,30 @@ func (r *PostgresRepository[Entity, Specification, Row]) Size(ctx context.Contex
 	return count, nil
 }
 
-func New[Entity any, Specification any, Row any](opt Option[Entity, Specification, Row]) repository.Repository[Entity, Specification] {
+func New[Entity any, Specification any, Row any](opt Option[Entity, Specification, Row]) common_repository.Repository[Entity, Specification] {
 	r := &PostgresRepository[Entity, Specification, Row]{
 		dbm:        opt.DatabaseManager,
+		logger:     opt.Logger,
 		filter:     opt.Filter,
 		scan:       opt.Scan,
 		entity:     opt.Entity,
 		row:        opt.Row,
 		values:     opt.Values,
+		schema:     opt.Schema,
 		columns:    opt.Columns,
 		tableName:  opt.TableName,
 		primaryKey: opt.PrimaryKey,
 	}
 
 	r.upsertSuffix = r.makeUpsertSuffix()
+	if err := r.checkSchema(); err != nil {
+		os.Exit(1)
+	}
 
 	return r
 }
 
-func (r *PostgresRepository[Entity, Specification, Row]) query(ctx context.Context, args repository.ListArgs[Specification]) (*sql.Rows, error) {
+func (r *PostgresRepository[Entity, Specification, Row]) query(ctx context.Context, args common_repository.ListArgs[Specification]) (*sql.Rows, error) {
 	builder := squirrel.
 		Select(r.columns...).
 		From(r.tableName).
@@ -219,4 +260,38 @@ func (r *PostgresRepository[Entity, Specification, Row]) makeUpsertSuffix() stri
 	}
 
 	return fmt.Sprintf("ON CONFLICT (%s) DO UPDATE SET %s", r.primaryKey, strings.Join(parts, ", "))
+}
+
+func (r *PostgresRepository[Entity, Specification, Row]) checkSchema() error {
+	ctx := context.Background()
+	builder := squirrel.Select("column_name", "data_type").From("information_schema.columns").Where(squirrel.Eq{"table_name": r.tableName})
+
+	query, args, err := builder.PlaceholderFormat(squirrel.Dollar).ToSql()
+	if err != nil {
+		return err
+	}
+
+	rows, err := r.dbm.Querier(ctx).QueryContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	var columnName, expectedType string
+	for rows.Next() {
+		err := rows.Scan(&columnName, &expectedType)
+		if err != nil {
+			return err
+		}
+		actualType, ok := r.schema[columnName]
+		if !ok || actualType != expectedType {
+			r.logger.Error("invalid schema", "table_name", r.tableName, "column", columnName, "expected_type", expectedType, "actual_type", actualType)
+			return ErrInvalidSchema.Format(columnName, expectedType, actualType)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }

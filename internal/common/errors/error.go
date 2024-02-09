@@ -1,4 +1,4 @@
-package errors
+package common_errors
 
 type Error struct {
 	Code    int    `json:"code"`

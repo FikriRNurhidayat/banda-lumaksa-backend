@@ -1,0 +1,15 @@
+* 04 February 2024
+
+The subscription and transaction implementation is mostly done. The pattern is solid:
++ API request / response lifecycle is controlled by controller only.
++ Business logic is only being handled by service.
+    + No implementation detail of specific infrastructure code is introduced in the layer.
+    + Database transaction is being handled by Transaction Manager that will be called in the service layer.
++ Repository interface is solid, it is exposes several function, and being abstracted in the ~common~ code.
+    + Here's the function that can be called:
+        + ~Each~: loop through the entity on the repository, using cursor if it's supported.
+        + ~List~: retrieve list of the entity.
+        + ~Get~: retrieve a entity from the repository.
+        + ~Save~: upsert entity.
+        + ~Delete~: delete entity.
+    + ~Each~, ~List~, ~Get~, and ~Delete~ all of them accept Specification, which specifies which data will be retrieved or deleted.

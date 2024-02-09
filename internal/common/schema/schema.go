@@ -1,6 +1,6 @@
-package schema
+package common_schema
 
-import "github.com/fikrirnurhidayat/banda-lumaksa/internal/common/service"
+import common_service "github.com/fikrirnurhidayat/banda-lumaksa/internal/common/service"
 
 type PaginationResponse struct {
 	Page      uint32 `json:"page"`
@@ -9,7 +9,7 @@ type PaginationResponse struct {
 	Size      uint32 `json:"size"`
 }
 
-func NewPaginationResponse(result service.PaginationResult) PaginationResponse {
+func NewPaginationResponse(result common_service.PaginationResult) PaginationResponse {
 	return PaginationResponse{
 		Page:      result.Page,
 		PageCount: result.PageCount,

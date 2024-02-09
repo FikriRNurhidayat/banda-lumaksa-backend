@@ -1,3 +1,3 @@
-package specification
+package common_specification
 
 type Specification interface{}

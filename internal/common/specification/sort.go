@@ -1,4 +1,4 @@
-package specification
+package common_specification
 
 type SortArg struct {
 	Column    string

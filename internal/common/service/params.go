@@ -1,4 +1,4 @@
-package service
+package common_service
 
 import (
 	"math"

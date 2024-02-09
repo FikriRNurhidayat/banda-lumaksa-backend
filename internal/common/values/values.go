@@ -1,4 +1,4 @@
-package values
+package common_values
 
 import "time"
 
