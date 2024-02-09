@@ -6,6 +6,7 @@ import (
 	"runtime/debug"
 
 	"github.com/fikrirnurhidayat/banda-lumaksa/pkg/exists"
+	"github.com/labstack/gommon/log"
 	"github.com/spf13/viper"
 )
 
@@ -33,10 +34,7 @@ func New() Logger {
 	viper.SetDefault("log.source", false)
 	viper.SetDefault("log.time", true)
 
-	bi, ok := debug.ReadBuildInfo()
-	if !ok {
-		
-	}
+	bi, _ := debug.ReadBuildInfo()
 
 	level, ok := levels[viper.GetString("log.level")]
 	if !ok {
