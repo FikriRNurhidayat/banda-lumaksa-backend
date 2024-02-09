@@ -1,6 +1,7 @@
 package http_server
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"io"
@@ -25,8 +26,13 @@ type Server struct {
 }
 
 func (s *Server) Start() error {
-	s.Logger.Info("SERVER_STARTED", logger.String("scheme", "http"), logger.String("host", "localhost"), logger.Int("port", int(s.Port)))
+	s.Logger.Info("server/START", logger.String("scheme", "http"), logger.String("host", "localhost"), logger.Int("port", int(s.Port)))
 	return s.Echo.Start(fmt.Sprintf(":%d", s.Port))
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	s.Logger.Info("server/SHUTDOWN", logger.String("scheme", "http"), logger.String("host", "localhost"), logger.Int("port", int(s.Port)))
+	return s.Echo.Shutdown(ctx)
 }
 
 func New() *Server {
@@ -43,6 +49,8 @@ func New() *Server {
 	server.Echo.HideBanner = true
 	server.Echo.HidePort = true
 	server.Echo.DisableHTTP2 = true
+	server.Echo.Use(middleware.Secure())
+	server.Echo.Use(middleware.Timeout())
 	server.Echo.Use(middleware.RequestID())
 	server.Echo.Use(server.RequestLogger())
 	server.Echo.Use(middleware.Recover())

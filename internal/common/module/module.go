@@ -38,8 +38,8 @@ type CLIModule interface {
 type CLIModules []CLIModule
 
 func New(db *sql.DB, logger logger.Logger) *RootDependency {
-	databaseManager := database_manager.New(db)
-	transactionManager := transaction_manager.New(db)
+	databaseManager := database_manager.New(logger, db)
+	transactionManager := transaction_manager.New(logger, db)
 
 	return &RootDependency{
 		DatabaseManager:    databaseManager,

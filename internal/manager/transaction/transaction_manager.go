@@ -3,7 +3,8 @@ package transaction_manager
 import (
 	"context"
 	"database/sql"
-	
+
+	"github.com/fikrirnurhidayat/banda-lumaksa/internal/infra/logger"
 	manager_values "github.com/fikrirnurhidayat/banda-lumaksa/internal/manager/values"
 )
 
@@ -12,7 +13,8 @@ type TransactionManager interface {
 }
 
 type TransactionManagerImpl struct {
-	db *sql.DB
+	db     *sql.DB
+	logger logger.Logger
 }
 
 func (m *TransactionManagerImpl) Execute(ctx context.Context, fn func(context.Context) error) error {
@@ -20,19 +22,31 @@ func (m *TransactionManagerImpl) Execute(ctx context.Context, fn func(context.Co
 	if err != nil {
 		return err
 	}
+	
+	m.logger.Debug("transaction/STARTED")
 
 	if err := fn(context.WithValue(ctx, manager_values.TxKey{}, tx)); err != nil {
 		if err := tx.Rollback(); err != nil {
+			m.logger.Debug("transaction/ABORTED")
 			return err
 		}
+
+		m.logger.Debug("transaction/ABORTED")
 		return err
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		m.logger.Debug("transaction/ABORTED")
+		return err
+	}
+
+	m.logger.Debug("transaction/COMMITED")
+	return nil
 }
 
-func New(db *sql.DB) TransactionManager {
+func New(logger logger.Logger, db *sql.DB) TransactionManager {
 	return &TransactionManagerImpl{
-		db: db,
+		db:     db,
+		logger: logger,
 	}
 }

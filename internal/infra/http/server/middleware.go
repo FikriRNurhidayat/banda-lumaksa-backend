@@ -1,6 +1,7 @@
 package http_server
 
 import (
+	"fmt"
 	"net/http"
 
 	common_errors "github.com/fikrirnurhidayat/banda-lumaksa/internal/common/errors"
@@ -44,22 +45,22 @@ func (server *Server) RequestLogger() echo.MiddlewareFunc {
 				logger.String("method", v.Method),
 				logger.String("uri", v.URI),
 				logger.Int("status", v.Status),
-				logger.Int("latency", int(v.Latency)),
+				logger.String("took", fmt.Sprintf("%d ms", v.Latency.Milliseconds())),
 			}
-			
+
 			if v.Error == nil {
-				server.Logger.Info("REQUEST", args...)
+				server.Logger.Info("http/OK", args...)
 			} else {
 				if v.Status == http.StatusNotFound {
-					server.Logger.Warn("NOT_FOUND", args...)
+					server.Logger.Warn("http/ROUTE_NOT_FOUND", args...)
 					return nil
 				}
 				if val, ok := v.Error.(*common_errors.Error); ok {
-					server.Logger.Warn(val.Reason, args...)
+					server.Logger.Warn(fmt.Sprintf("http/%s", val.Reason), args...)
 					return nil
 				}
 				args = append(args, logger.String("error", v.Error.Error()))
-				server.Logger.Warn("INTERNAL_SERVER_ERROR", args...)
+				server.Logger.Warn("http/INTERNAL_SERVER_ERROR", args...)
 			}
 			return nil
 		},

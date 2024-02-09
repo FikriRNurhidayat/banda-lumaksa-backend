@@ -114,6 +114,8 @@ func (ctl *SubscriptionControllerImpl) ListSubscriptions(c echo.Context) error {
 		Uint32("page_size", &params.Pagination.PageSize).
 		Time("created_from", &params.CreatedFrom, time.RFC3339).
 		Time("created_to", &params.CreatedFrom, time.RFC3339).
+		Time("updated_from", &params.UpdatedFrom, time.RFC3339).
+		Time("updated_to", &params.UpdatedFrom, time.RFC3339).
 		Time("started_from", &params.StartedFrom, time.RFC3339).
 		Time("started_to", &params.StartedFrom, time.RFC3339).
 		Time("ended_from", &params.EndedFrom, time.RFC3339).

@@ -110,6 +110,22 @@ func CreatedBetween(start time.Time, end time.Time) SubscriptionSpecification {
 	}
 }
 
+type UpdatedBetweenSpecification struct {
+	Start time.Time
+	End   time.Time
+}
+
+func (spec UpdatedBetweenSpecification) Call(subscription subscription_entity.Subscription) bool {
+	return subscription.UpdatedAt.After(spec.Start) && subscription.UpdatedAt.Before(spec.End)
+}
+
+func UpdatedBetween(start time.Time, end time.Time) SubscriptionSpecification {
+	return UpdatedBetweenSpecification{
+		Start: start,
+		End:   end,
+	}
+}
+
 type StartedBetweenSpecification struct {
 	Start time.Time
 	End   time.Time

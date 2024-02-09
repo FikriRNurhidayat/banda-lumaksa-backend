@@ -284,7 +284,7 @@ func (r *PostgresRepository[Entity, Specification, Row]) checkSchema() error {
 		}
 		actualType, ok := r.schema[columnName]
 		if !ok || actualType != expectedType {
-			r.logger.Error("invalid schema", "table_name", r.tableName, "column", columnName, "expected_type", expectedType, "actual_type", actualType)
+			r.logger.Error("postgres/INVALID_SCHEMA", "table_name", r.tableName, "column", columnName, "expected_type", expectedType, "actual_type", actualType)
 			return ErrInvalidSchema.Format(columnName, expectedType, actualType)
 		}
 	}

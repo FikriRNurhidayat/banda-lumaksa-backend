@@ -25,6 +25,8 @@ type ListSubscriptionsParams struct {
 	DueTo       time.Time
 	CreatedFrom time.Time
 	CreatedTo   time.Time
+	UpdatedFrom time.Time
+	UpdatedTo   time.Time
 	Pagination  common_service.PaginationParams
 }
 
@@ -54,6 +56,10 @@ func (s *SubscriptionServiceImpl) ListSubscriptions(ctx context.Context, params 
 
 	if exists.Date(params.CreatedFrom) && exists.Date(params.CreatedTo) {
 		filters = append(filters, subscription_specification.CreatedBetween(params.CreatedFrom, params.CreatedTo))
+	}
+
+	if exists.Date(params.UpdatedFrom) && exists.Date(params.UpdatedTo) {
+		filters = append(filters, subscription_specification.UpdatedBetween(params.UpdatedFrom, params.UpdatedTo))
 	}
 
 	if exists.Date(params.DueFrom) && exists.Date(params.DueTo) {
