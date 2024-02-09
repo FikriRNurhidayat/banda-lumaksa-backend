@@ -35,12 +35,12 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.Echo.Shutdown(ctx)
 }
 
-func New() *Server {
+func New(build string, version string) *Server {
 	server := &Server{
 		Port:   viper.GetUint("server.port"),
 		Echo:   echo.New(),
 		DB:     db.New(),
-		Logger: logger.New(),
+		Logger: logger.New(build, version),
 	}
 
 	server.Dependency = common_module.New(server.DB, server.Logger)

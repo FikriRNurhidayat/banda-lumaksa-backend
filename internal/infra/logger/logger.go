@@ -3,10 +3,7 @@ package logger
 import (
 	"log/slog"
 	"os"
-	"runtime/debug"
 
-	"github.com/fikrirnurhidayat/banda-lumaksa/pkg/exists"
-	"github.com/labstack/gommon/log"
 	"github.com/spf13/viper"
 )
 
@@ -29,12 +26,10 @@ var levels = map[string]slog.Level{
 	"debug": slog.LevelDebug,
 }
 
-func New() Logger {
+func New(build string, version string) Logger {
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("log.source", false)
 	viper.SetDefault("log.time", true)
-
-	bi, _ := debug.ReadBuildInfo()
 
 	level, ok := levels[viper.GetString("log.level")]
 	if !ok {
@@ -62,10 +57,5 @@ func New() Logger {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
 
-	logger := slog.New(handler)
-	if exists.String(bi.Main.Version) {
-		logger = logger.With(slog.String("v", bi.Main.Version))
-	}
-
-	return logger
+	return slog.New(handler).With(slog.String("version", version), slog.String("build", build))
 }

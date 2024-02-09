@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,10 +14,15 @@ import (
 	_ "github.com/lib/pq"
 )
 
+var (
+	version string = "dev"
+	build   string = fmt.Sprintf("%d", time.Now().UnixMilli())
+)
+
 func main() {
 	config.Init()
 
-	srv := http_server.New()
+	srv := http_server.New(build, version)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
