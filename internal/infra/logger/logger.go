@@ -12,6 +12,16 @@ type Logger interface {
 	Info(msg string, args ...any)
 	Warn(msg string, args ...any)
 	Error(msg string, args ...any)
+	Fatal(msg string, args ...any)
+}
+
+type LoggerImpl struct {
+	*slog.Logger
+}
+
+func (l *LoggerImpl) Fatal(msg string, args ...any) {
+	l.Error(msg, args...)
+	os.Exit(1)
 }
 
 var String = slog.String
@@ -57,5 +67,7 @@ func New(build string, version string) Logger {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
 
-	return slog.New(handler).With(slog.String("version", version), slog.String("build", build))
+	return &LoggerImpl{
+		slog.New(handler).With(slog.String("version", version), slog.String("build", build)),
+	}
 }

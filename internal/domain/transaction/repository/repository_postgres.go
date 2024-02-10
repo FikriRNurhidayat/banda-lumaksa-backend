@@ -32,7 +32,7 @@ type PostgresTransactionRow struct {
 	UpdatedAt   time.Time
 }
 
-func NewPostgresRepository(logger logger.Logger, dbm database_manager.DatabaseManager) TransactionRepository {
+func NewPostgresRepository(logger logger.Logger, dbm database_manager.DatabaseManager) (TransactionRepository, error) {
 	return postgres_repository.New[transaction_entity.Transaction, transaction_specification.TransactionSpecification, *PostgresTransactionRow](postgres_repository.Option[transaction_entity.Transaction, transaction_specification.TransactionSpecification, *PostgresTransactionRow]{
 		Logger:    logger,
 		TableName: "transactions",

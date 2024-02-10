@@ -30,7 +30,7 @@ type PostgresSubscriptionRow struct {
 
 var NoPostgresSubscriptionRow = PostgresSubscriptionRow{}
 
-func NewPostgresRepository(logger logger.Logger, dbm database_manager.DatabaseManager) SubscriptionRepository {
+func NewPostgresRepository(logger logger.Logger, dbm database_manager.DatabaseManager) (SubscriptionRepository, error) {
 	return postgres_repository.New[subscription_entity.Subscription, subscription_specification.SubscriptionSpecification, PostgresSubscriptionRow](postgres_repository.Option[subscription_entity.Subscription, subscription_specification.SubscriptionSpecification, PostgresSubscriptionRow]{
 		Logger:    logger,
 		TableName: "subscriptions",

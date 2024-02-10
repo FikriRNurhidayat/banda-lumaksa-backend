@@ -18,11 +18,12 @@ import (
 )
 
 type Server struct {
-	Echo       *echo.Echo
-	Port       uint
-	DB         *sql.DB
-	Logger     logger.Logger
-	Dependency *common_module.RootDependency
+	Echo           *echo.Echo
+	Port           uint
+	DB             *sql.DB
+	Logger         logger.Logger
+	RootDependency *common_module.RootDependency
+	Dependency     *Dependency
 }
 
 func (s *Server) Start() error {
@@ -35,15 +36,20 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.Echo.Shutdown(ctx)
 }
 
-func New(build string, version string) *Server {
+func New(logger logger.Logger) (*Server, error) {
+	db, err := db.New()
+	if err != nil {
+		return nil, err
+	}
+
 	server := &Server{
 		Port:   viper.GetUint("server.port"),
 		Echo:   echo.New(),
-		DB:     db.New(),
-		Logger: logger.New(build, version),
+		DB:     db,
+		Logger: logger,
 	}
 
-	server.Dependency = common_module.New(server.DB, server.Logger)
+	server.RootDependency = common_module.New(server.DB, server.Logger)
 	server.Echo.Logger.SetOutput(io.Discard)
 	server.Echo.Logger.SetLevel(log.OFF)
 	server.Echo.HideBanner = true
@@ -56,11 +62,9 @@ func New(build string, version string) *Server {
 	server.Echo.Use(middleware.Recover())
 	server.Echo.GET("/health", server.HealthCheck)
 	server.Echo.HTTPErrorHandler = server.HTTPErrorHandler
-
-	for _, mod := range HTTPModules {
-		mod.Wire(server.Dependency)
-		mod.WireController(server.Echo)
+	if err := server.Bootstrap(); err != nil {
+		return nil, err
 	}
 
-	return server
+	return server, nil
 }

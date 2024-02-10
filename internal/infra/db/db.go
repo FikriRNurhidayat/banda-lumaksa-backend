@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func New() *sql.DB {
+func New() (*sql.DB, error) {
 	dbUsername := viper.GetString("database.username")
 	dbPassword := viper.GetString("database.password")
 	dbHost := viper.GetString("database.host")
@@ -18,10 +18,5 @@ func New() *sql.DB {
 
 	dbUrl := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=%s", dbUsername, dbPassword, dbHost, dbPort, dbName, dbSSLMode)
 
-	db, err := sql.Open("postgres", dbUrl)
-	if err != nil {
-		panic("Cannot connect to database!")
-	}
-
-	return db
+	return sql.Open("postgres", dbUrl)
 }

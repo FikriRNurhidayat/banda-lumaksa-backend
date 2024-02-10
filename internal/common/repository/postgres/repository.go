@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/Masterminds/squirrel"
@@ -216,7 +215,7 @@ func (r *PostgresRepository[Entity, Specification, Row]) Size(ctx context.Contex
 	return count, nil
 }
 
-func New[Entity any, Specification any, Row any](opt Option[Entity, Specification, Row]) common_repository.Repository[Entity, Specification] {
+func New[Entity any, Specification any, Row any](opt Option[Entity, Specification, Row]) (common_repository.Repository[Entity, Specification], error) {
 	r := &PostgresRepository[Entity, Specification, Row]{
 		dbm:        opt.DatabaseManager,
 		logger:     opt.Logger,
@@ -233,10 +232,10 @@ func New[Entity any, Specification any, Row any](opt Option[Entity, Specificatio
 
 	r.upsertSuffix = r.makeUpsertSuffix()
 	if err := r.checkSchema(); err != nil {
-		os.Exit(1)
+		return nil, err
 	}
 
-	return r
+	return r, nil
 }
 
 func (r *PostgresRepository[Entity, Specification, Row]) query(ctx context.Context, args common_repository.ListArgs[Specification]) (*sql.Rows, error) {

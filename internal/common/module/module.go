@@ -25,7 +25,7 @@ type RootDependency struct {
 
 type HTTPModule interface {
 	Wire(*RootDependency)
-	WireController(e *echo.Echo)
+	WireController(e *echo.Echo) error
 }
 
 type HTTPModules []HTTPModule
