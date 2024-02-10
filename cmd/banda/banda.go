@@ -24,6 +24,6 @@ func main() {
 }
 
 func init() {
-	bandaCmd.AddCommand(banda_command.InitCmd)
+	// bandaCmd.AddCommand(banda_command.InitCmd)
 	bandaCmd.AddCommand(banda_command.ServeCmd)
 }
